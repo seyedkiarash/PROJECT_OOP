@@ -1314,6 +1314,7 @@ class parsingElementInput {
         regex pattern_making_diode(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
         regex pattern_deleting_diode(R"(^delete (\w+)$)");
         regex pattern_adding_ground(R"(^add (\w+) (\w+)$)");
+        regex pattern_delete_ground(R"(^delete (\w+)$)");
         smatch matches;
         if (regex_match(in, matches, pattern_making_resistor)) {
             if (matches.size()==5) {
@@ -1406,7 +1407,15 @@ class parsingElementInput {
             if (matches.size()==3) {
                 string name=matches[1].str();
                 string node=matches[2].str();
+                if (name!="GND")
+                    throw logic_error("Element "+name+" not found in library");
                 programController.addingGround(node);
+            }
+        }
+        else if (regex_match(in, matches, pattern_delete_ground)) {
+            if (matches.size()==2) {
+                string node=matches[1].str();
+                programController.deletingGround(node);
             }
         }
     }
