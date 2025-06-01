@@ -1311,7 +1311,8 @@ class parsingElementInput {
                 string value=matches[4].str();
                 if (name[0]!='R')
                     throw logic_error("Element "+name+" not found in library");
-                if (!checkingNemadElmi(value)&&checkDouble(value))
+                if (!checkingNemadElmi(value)&&!checkDouble(value))
+                    throw logic_error("Error: Resistance cannot be zero or negative");
             }
         }
     }
