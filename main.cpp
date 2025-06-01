@@ -1296,12 +1296,24 @@ pair<string,string> valuate(const string& s) {
         return res;
     }
 }
+class centralController {
+    private:
+    public:
+};
 class parsingElementInput {
     private:
+    centralController programController;
     public:
     void parsingInputs(const string &in) {
         regex pattern_making_resistor(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
         regex pattern_deleting_resistor(R"(^delete (\w+)$)");
+        regex pattern_making_capacity(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
+        regex pattern_deleting_capacity(R"(^delete (\w+)$)");
+        regex pattern_making_inductor(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
+        regex pattern_deleting_inductor(R"(^delete (\w+)$)");
+        regex pattern_making_diode(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
+        regex pattern_deleting_diode(R"(^delete (\w+)$)");
+        regex pattern_adding_ground(R"(^add (\w+) (\w+)$)");
         smatch matches;
         if (regex_match(in, matches, pattern_making_resistor)) {
             if (matches.size()==5) {
@@ -1311,8 +1323,90 @@ class parsingElementInput {
                 string value=matches[4].str();
                 if (name[0]!='R')
                     throw logic_error("Element "+name+" not found in library");
-                if (!checkingNemadElmi(value)&&!checkDouble(value))
-                    throw logic_error("Error: Resistance cannot be zero or negative");
+                if (!checkingNemadElmi(valuate(value).first)&&!checkDouble(valuate(value).first))
+                    throw logic_error("Resistance cannot be zero or negative");
+                if (stod(valuate(value).first)<=0)
+                    throw logic_error("Resistance cannot be zero or negative");
+                programController.makingResistor(name,node1,node2,value);
+            }
+        }
+        else if (regex_match(in, matches, pattern_deleting_resistor)) {
+            if (matches.size()==2) {
+                string name=matches[1].str();
+                programController.deletingResistor(name);
+            }
+        }
+        else if (regex_match(in, matches, pattern_making_capacity)) {
+            if (matches.size()==5) {
+                string name=matches[1].str();
+                string node1=matches[2].str();
+                string node2=matches[3].str();
+                string value=matches[4].str();
+                if (name[0]!='C')
+                    throw logic_error("Element "+name+" not found in library");
+                if (!checkingNemadElmi(valuate(value).first)&&!checkDouble(valuate(value).first))
+                    throw logic_error("Capacitance cannot be zero or negative");
+                if (stod(valuate(value).first)<=0)
+                    throw logic_error("Capacitance cannot be zero or negative");
+                programController.makingCapacity(name,node1,node2,value);
+            }
+        }
+        else if (regex_match(in, matches, pattern_deleting_capacity)) {
+            if (matches.size()==2) {
+                string name=matches[1].str();
+                programController.deleteCapacity(name);
+            }
+        }
+        else if (regex_match(in, matches, pattern_making_inductor)) {
+            if (matches.size()==5) {
+                string name=matches[1].str();
+                string node1=matches[2].str();
+                string node2=matches[3].str();
+                string value=matches[4].str();
+                if (name[0]!='L')
+                    throw logic_error("Element "+name+" not found in library");
+                if (!checkingNemadElmi(valuate(value).first)&&!checkDouble(valuate(value).first))
+                    throw logic_error("Inductance cannot be zero or negative");
+                if (stod(valuate(value).first)<=0)
+                    throw logic_error("Inductance cannot be zero or negative");
+                programController.makingInductor(name,node1,node2,value);
+            }
+        }
+        else if (regex_match(in, matches, pattern_deleting_inductor)) {
+            if (matches.size()==2) {
+                string name=matches[1].str();
+                programController.deleteInductor(name);
+            }
+        }
+        else if (regex_match(in, matches, pattern_making_diode)) {
+            if (matches.size()==5) {
+                string name=matches[1].str();
+                string node1=matches[2].str();
+                string node2=matches[3].str();
+                string modal=matches[4].str();
+                if (modal!="D"&&modal!="Z")
+                    throw logic_error(" Model <model> not found in library");
+                if (name[0]!='D'&&name[1]!='Z')
+                    throw logic_error("Element "+name+" not found in library");
+                 // if (!checkingNemadElmi(valuate(value).first)&&!checkDouble(valuate(value).first))
+                //     throw logic_error(" cannot be zero or negative");
+                // if (stod(valuate(value).first)<=0)
+                //     throw logic_error("Inductance cannot be zero or negative");
+                // programController.makingInductor(name,node1,node2,value);
+                programController.makingDiode(name,node1,node2,modal);
+            }
+        }
+        else if (regex_match(in, matches, pattern_deleting_diode)) {
+            if (matches.size()==2) {
+                string name=matches[1].str();
+                programController.deletingDiode(name);
+            }
+        }
+        else if (regex_match(in, matches, pattern_adding_ground )) {
+            if (matches.size()==3) {
+                string name=matches[1].str();
+                string node=matches[2].str();
+                programController.addingGround(node);
             }
         }
     }
