@@ -643,6 +643,7 @@
 #include <iomanip>   // برای форматирование вывода (std::fixed, std::setprecision)
 #include <cmath>     // برای std::abs و std::fabs
 #include <algorithm> // برای std::swap
+#include <regex>
 
 // استفاده از فضای نام std برای سادگی در این مثال
 // در پروژه‌های بزرگتر، بهتر است از پیشوند std:: استفاده شود یا using declarations محدودتری به کار رود.
@@ -1224,3 +1225,94 @@ int main() {
 
     return 0;
 }
+bool checkDouble(const string& s) {
+    if (s.empty()) return false;
+    int dot_count = 0;
+    bool digitFound = false;
+    for (size_t i = 0; i < s.length(); ++i) {
+        char ch = s[i];
+        if (ch >= '0' && ch <= '9') {
+            digitFound = true;
+            continue;
+        }
+        if (ch == '.') {
+            dot_count++;
+            if (dot_count > 1)
+                return false;
+            continue;
+        }
+        if (ch == '-') {
+            if (i != 0)
+                return false;
+            continue;
+        }
+        return false;
+    }
+    if (!digitFound && s.find('.') != string::npos && s.length() == s.find('.') + 1)
+        return false;
+    if (!digitFound)
+        return false;
+
+    try {
+        stod(s);
+    } catch (const invalid_argument&) {
+        return false;
+    } catch (const out_of_range&) {
+        return false;
+    }
+    return true;
+}
+bool checkingNemadElmi(const string& s) {
+    if (s.empty())
+        return false;
+    size_t k=s.find('e');
+    if (k == string::npos)
+        return false;
+    if (checkDouble(s.substr(0, k))&&checkDouble(s.substr(k+1)))
+        return true;
+    return false;
+}
+
+pair<string,string> valuate(const string& s) {
+    size_t f1=s.find("n"), f2=s.find("u"), f3=s.find("m"), f4=s.find("k"), f5=s.find("Meg");
+    if (f1!=string::npos) {
+        pair<string,string> res={s.substr(0,f1),"n"};
+        return res;
+    }
+    if (f2!=string::npos) {
+        pair<string,string> res={s.substr(0,f2),"u"};
+        return res;
+    }
+    if (f3!=string::npos) {
+        pair<string,string> res={s.substr(0,f3),"m"};
+        return res;
+    }
+    if (f4!=string::npos) {
+        pair<string,string> res={s.substr(0,f4),"k"};
+        return res;
+    }
+    if (f5!=string::npos) {
+        pair<string,string> res={s.substr(0,f5),"Meg"};
+        return res;
+    }
+}
+class parsingElementInput {
+    private:
+    public:
+    void parsingInputs(const string &in) {
+        regex pattern_making_resistor(R"(^add (\w+) (\w+) (\w+) (.+?)$)");
+        regex pattern_deleting_resistor(R"(^delete (\w+)$)");
+        smatch matches;
+        if (regex_match(in, matches, pattern_making_resistor)) {
+            if (matches.size()==5) {
+                string name=matches[1].str();
+                string node1=matches[2].str();
+                string node2=matches[3].str();
+                string value=matches[4].str();
+                if (name[0]!='R')
+                    throw logic_error("Element "+name+" not found in library");
+                if (!checkingNemadElmi(value)&&checkDouble(value))
+            }
+        }
+    }
+};
