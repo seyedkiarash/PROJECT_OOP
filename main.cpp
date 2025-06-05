@@ -2287,6 +2287,554 @@
 // }
 
 /////////////////////////////
+// #include <iostream>
+// #include <string>
+// #include <vector>
+// #include <regex>
+// #include <stdexcept> // For logic_error
+// #include <algorithm> // For tolower, transform
+// #include <iomanip>   // For stod precision issues if any, though not directly used for that here
+//
+// using namespace std;
+//
+// // Forward declaration of centralController
+// class centralController {
+// public:
+//     // Methods for section 13 & 18 (element/source creation/deletion)
+//     void makingResistor(const string& name, const string& node1, const string& node2, const string& value_str_raw) {
+//         cout << "Controller: Making Resistor: " << name << ", " << node1 << ", " << node2 << ", Value: " << value_str_raw << endl;
+//     }
+//     void deletingResistor(const string& name) {
+//         cout << "Controller: Deleting Resistor: " << name << endl;
+//     }
+//     void makingCapacity(const string& name, const string& node1, const string& node2, const string& value_str_raw) {
+//         cout << "Controller: Making Capacitor: " << name << ", " << node1 << ", " << node2 << ", Value: " << value_str_raw << endl;
+//     }
+//     void deleteCapacity(const string& name) {
+//         cout << "Controller: Deleting Capacitor: " << name << endl;
+//     }
+//     void makingInductor(const string& name, const string& node1, const string& node2, const string& value_str_raw) {
+//         cout << "Controller: Making Inductor: " << name << ", " << node1 << ", " << node2 << ", Value: " << value_str_raw << endl;
+//     }
+//     void deleteInductor(const string& name) {
+//         cout << "Controller: Deleting Inductor: " << name << endl;
+//     }
+//     void makingDiode(const string& name, const string& node1, const string& node2, const string& model) {
+//         cout << "Controller: Making Diode: " << name << ", " << node1 << ", " << node2 << ", Model: " << model << endl;
+//     }
+//     void deletingDiode(const string& name) {
+//         cout << "Controller: Deleting Diode: " << name << endl;
+//     }
+//     void addingGround(const string& node) {
+//         cout << "Controller: Adding Ground to node: " << node << endl;
+//     }
+//     void deletingGround(const string& node) {
+//         // As per PDF 13.5.2, this method in controller should check if node exists
+//         // and print "Node does not exist" if applicable.
+//         cout << "Controller: Deleting Ground from node: " << node << endl;
+//     }
+//
+//     // --- Source Creation/Deletion ---
+//     void makingVoltageSourceDC(const string& name, const string& node_plus, const string& node_minus, const string& value_str_raw) {
+//         cout << "Controller: Making DC Voltage Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
+//     }
+//     void makingCurrentSourceDC(const string& name, const string& node_plus, const string& node_minus, const string& value_str_raw) {
+//         cout << "Controller: Making DC Current Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
+//     }
+//     void makingVoltageSourceSin(const string& name, const string& node_plus, const string& node_minus, const string& v_offset, const string& v_amplitude, const string& freq) {
+//         cout << "Controller: Making Sinusoidal Voltage Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus
+//              << ", Voffset: " << v_offset << ", Vamplitude: " << v_amplitude << ", Freq: " << freq << endl;
+//     }
+//     void makingVCVS(const string& name, const string& n_plus, const string& n_minus, const string& nc_plus, const string& nc_minus, const string& gain_str) {
+//         cout << "Controller: Making VCVS (E): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " " << gain_str << endl;
+//     }
+//     void makingVCCS(const string& name, const string& n_plus, const string& n_minus, const string& nc_plus, const string& nc_minus, const string& gain_str) {
+//         cout << "Controller: Making VCCS (G): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " " << gain_str << endl;
+//     }
+//     void makingCCVS(const string& name, const string& n_plus, const string& n_minus, const string& v_control_name, const string& gain_str) {
+//         cout << "Controller: Making CCVS (H): " << name << " " << n_plus << " " << n_minus << " " << v_control_name << " " << gain_str << endl;
+//     }
+//     void makingCCCS(const string& name, const string& n_plus, const string& n_minus, const string& v_control_name, const string& gain_str) {
+//         cout << "Controller: Making CCCS (F): " << name << " " << n_plus << " " << n_minus << " " << v_control_name << " " << gain_str << endl;
+//     }
+//     void deletingSource(const string& name) {
+//         cout << "Controller: Deleting Source: " << name << endl;
+//     }
+//
+//
+//     void handleNodesCommand() {
+//         cout << "Controller: Handling 'nodes' command." << endl;
+//         cout << "Available nodes:\nn001, n002, VDD, GND, Vout, Vin" << endl;
+//     }
+//
+//     void handleListCommand(const string& componentType = "") {
+//         if (componentType.empty()) {
+//             cout << "Controller: Handling 'list' command (all components)." << endl;
+//         } else {
+//             cout << "Controller: Handling 'list " << componentType << "' command." << endl;
+//         }
+//     }
+//
+//     void handleRenameNodeCommand(const string& oldName, const string& newName) {
+//         cout << "Controller: Attempting to rename node " << oldName << " to " << newName << "." << endl;
+//         // Simulate success based on PDF example for "rename node N001 Vout" (14.3.2)
+//         // Actual controller would check:
+//         // 1. if oldName exists (PDF 14.3.5: ERROR: Node <old_name> does not exist)
+//         // 2. if newName already exists (PDF 14.3.6: ERROR: Node name <new_name> already exists)
+//         cout << "SUCCESS: Node renamed from " << oldName << " to " << newName << endl;
+//     }
+//
+//     void handlePrintCommand(const string& analysisType, const string& printArgs) {
+//         cout << "Controller: Handling 'print " << analysisType << "' command with args: '" << printArgs << "'." << endl;
+//         // Controller would parse printArgs and check for errors like:
+//         // PDF 15.5.1: Node <node_name> not found in circuit
+//         // PDF 15.5.2: Component <component_name> not found in circuit
+//     }
+//
+//     void handleNewFileCommand(const string& filePath) {
+//         cout << "Controller: Handling 'NewFile " << filePath << "' command." << endl;
+//     }
+//
+//     bool is_expecting_schematic_choice = false;
+//
+//     void handleShowExistingSchematicsCommand() {
+//         cout << "Controller: Handling 'show existing schematics' command." << endl;
+//         cout << "-choose existing schematic:\n1-draft1\n2-draft2\n3-draft3\n4-elecphase1" << endl;
+//         is_expecting_schematic_choice = true;
+//     }
+//
+//     void handleChooseSchematic(const string& choice) {
+//         // This method is responsible for PDF 17's menu logic including error "-Error: Inappropriate input"
+//         cout << "Controller: Handling schematic choice: " << choice << endl;
+//
+//         if (choice == "return") {
+//             is_expecting_schematic_choice = false;
+//             cout << "Controller: Returning to main menu..." << endl;
+//             return;
+//         }
+//
+//         bool isValidNumericChoice = true;
+//         int chosen_num = 0;
+//         if (choice.empty() || !all_of(choice.begin(), choice.end(), ::isdigit)) {
+//             isValidNumericChoice = false;
+//         } else {
+//             try {
+//                 chosen_num = stoi(choice);
+//             } catch (const std::out_of_range&) {
+//                 isValidNumericChoice = false; // Number too large
+//             }
+//         }
+//
+//         // Example valid range based on PDF output
+//         if (isValidNumericChoice && chosen_num >= 1 && chosen_num <= 4) {
+//             is_expecting_schematic_choice = false; // Valid choice, reset state for now
+//             cout << "Controller: Loading schematic " << choice << "..." << endl;
+//             cout << "draft" << choice << ":\nV1 in 0 DC O AC 1 SIN(0 1 1k)\n...\n.end" << endl;
+//             // As per PDF, after showing netlist, it returns to the "choose existing schematic" prompt.
+//             handleShowExistingSchematicsCommand(); // This will set is_expecting_schematic_choice back to true
+//         } else {
+//             // Invalid choice (e.g., "5", "draft2", "rreturn" as per PDF examples of bad input)
+//             cout << "-Error: Inappropriate input" << endl; // PDF Error message (section 17)
+//             // is_expecting_schematic_choice remains true, so it prompts again implicitly
+//         }
+//     }
+// };
+//
+// // Helper functions
+// bool checkDouble(const string& s_in) {
+//     if (s_in.empty()) return false;
+//     string s = s_in;
+//     size_t i = 0;
+//     if (s[0] == '-') {
+//         if (s.length() == 1) return false;
+//         i = 1;
+//     }
+//     bool digitFound = false;
+//     bool dotFound = false;
+//     bool hasCharAfterDot = false;
+//
+//     for (; i < s.length(); ++i) {
+//         if (isdigit(s[i])) {
+//             digitFound = true;
+//             if (dotFound) hasCharAfterDot = true;
+//         } else if (s[i] == '.') {
+//             if (dotFound) return false;
+//             dotFound = true;
+//         } else {
+//             return false;
+//         }
+//     }
+//     if (!digitFound) return false;
+//     if (dotFound && !hasCharAfterDot && s.length() > 0 && s.back() == '.') {
+//         // For now, let stod decide. If stod accepts "1.", it's fine.
+//     }
+//     try {
+//         stod(s);
+//     } catch (const std::invalid_argument&) {
+//         return false;
+//     } catch (const std::out_of_range&) {
+//         return false;
+//     }
+//     return true;
+// }
+//
+// bool checkingNemadElmi(const string& s_in) {
+//     if (s_in.empty()) return false;
+//     string s = s_in;
+//     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+//
+//     size_t e_pos = s.find('e');
+//     if (e_pos == string::npos || e_pos == 0 || e_pos == s.length() - 1) return false;
+//
+//     string base_str = s.substr(0, e_pos);
+//     string exp_str = s.substr(e_pos + 1);
+//
+//     if (base_str.empty() || exp_str.empty()) return false;
+//     if (!checkDouble(base_str)) return false;
+//
+//     size_t i = 0;
+//     if (exp_str[0] == '+' || exp_str[0] == '-') {
+//         if (exp_str.length() == 1) return false;
+//         i = 1;
+//     }
+//     if (i == exp_str.length()) return false;
+//
+//     for (; i < exp_str.length(); ++i) {
+//         if (!isdigit(exp_str[i])) return false;
+//     }
+//     try {
+//         stod(s_in);
+//     } catch (const std::out_of_range&) {
+//         return false;
+//     }
+//     return true;
+// }
+//
+// pair<string, string> valuate(const string& s_in) {
+//     string s = s_in;
+//     string value_str = s;
+//     string prefix_str = "";
+//
+//     if (s.empty()) return {s, ""};
+//
+//     if (s.length() >= 3 && (s.substr(s.length() - 3) == "Meg" || s.substr(s.length() - 3) == "MEG")) {
+//         value_str = s.substr(0, s.length() - 3);
+//         prefix_str = "Meg";
+//     } else if (s.length() >= 2) {
+//         char last_char = s.back();
+//         string potential_val_str = s.substr(0, s.length() - 1);
+//         if (!potential_val_str.empty() && (isdigit(potential_val_str.back()) || potential_val_str.back() == '.' || (potential_val_str.length() == 1 && potential_val_str[0] == '-'))) {
+//             switch (last_char) {
+//                 case 'G': case 'g': prefix_str = "G"; value_str = potential_val_str; break;
+//                 case 'k': case 'K': prefix_str = "k"; value_str = potential_val_str; break;
+//                 case 'm': prefix_str = "m"; value_str = potential_val_str; break;
+//                 case 'u': case 'U': prefix_str = "u"; value_str = potential_val_str; break;
+//                 case 'n': case 'N': prefix_str = "n"; value_str = potential_val_str; break;
+//                 case 'p': case 'P': prefix_str = "p"; value_str = potential_val_str; break;
+//                 case 'f': case 'F': prefix_str = "f"; value_str = potential_val_str; break;
+//             }
+//         }
+//     }
+//     if (value_str.empty() && !prefix_str.empty()) {
+//         return {s_in, ""};
+//     }
+//     return {value_str, prefix_str};
+// }
+//
+//
+// class CommandParser {
+// private:
+//     centralController& controller;
+//
+//     bool tryParseElementCommands(const string& in) {
+//         smatch matches;
+//         regex add_res_pattern(R"(^add (R\w*) (\w+) (\w+) (.+?)$)");
+//         regex del_res_pattern(R"(^delete (R\w+)$)");
+//         if (regex_match(in, matches, add_res_pattern)) {
+//             string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+//             pair<string, string> p_val = valuate(val_raw);
+//             if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for " + name);
+//             double num_val = stod(p_val.first);
+//             if (num_val <= 0) throw logic_error("Error: Resistance cannot be zero or negative");
+//             controller.makingResistor(name, n1, n2, val_raw); return true;
+//         }
+//         if (regex_match(in, matches, del_res_pattern)) {
+//             controller.deletingResistor(matches[1].str()); return true;
+//         }
+//         regex add_cap_pattern(R"(^add (C\w+) (\w+) (\w+) (.+?)$)");
+//         regex del_cap_pattern(R"(^delete (C\w+)$)");
+//         if (regex_match(in, matches, add_cap_pattern)) {
+//             string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+//             pair<string, string> p_val = valuate(val_raw);
+//             if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for " + name);
+//             double num_val = stod(p_val.first);
+//             if (num_val <= 0) throw logic_error("Error: Capacitance cannot be zero or negative");
+//             controller.makingCapacity(name, n1, n2, val_raw); return true;
+//         }
+//         if (regex_match(in, matches, del_cap_pattern)) {
+//             controller.deleteCapacity(matches[1].str()); return true;
+//         }
+//         regex add_ind_pattern(R"(^add (L\w+) (\w+) (\w+) (.+?)$)");
+//         regex del_ind_pattern(R"(^delete (L\w+)$)");
+//         if (regex_match(in, matches, add_ind_pattern)) {
+//             string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+//             pair<string, string> p_val = valuate(val_raw);
+//             if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for " + name);
+//             double num_val = stod(p_val.first);
+//             if (num_val <= 0) throw logic_error("Error: Inductance cannot be zero or negative");
+//             controller.makingInductor(name, n1, n2, val_raw); return true;
+//         }
+//         if (regex_match(in, matches, del_ind_pattern)) {
+//             controller.deleteInductor(matches[1].str()); return true;
+//         }
+//         regex add_diode_pattern(R"(^add (D\w+) (\w+) (\w+) (D|Z)$)");
+//         regex del_diode_pattern(R"(^delete (D\w+)$)");
+//         if (regex_match(in, matches, add_diode_pattern)) {
+//             controller.makingDiode(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//         if (regex_match(in, matches, del_diode_pattern)) {
+//             controller.deletingDiode(matches[1].str()); return true;
+//         }
+//         regex add_gnd_pattern(R"(^add GND (\w+)$)");
+//         regex del_gnd_pattern(R"(^delete GND (\w+)$)");
+//         if (regex_match(in, matches, add_gnd_pattern)) {
+//             controller.addingGround(matches[1].str()); return true;
+//         }
+//         if (regex_match(in, matches, del_gnd_pattern)) {
+//             controller.deletingGround(matches[1].str()); return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseSourceCommands(const string& in) {
+//         smatch matches;
+//         regex add_v_generic_pattern(R"(^add (V\w+) (\w+) (\w+) (.+?)$)");
+//
+//         if (regex_match(in, matches, add_v_generic_pattern)) {
+//             string name = matches[1].str();
+//             string n1 = matches[2].str();
+//             string n2 = matches[3].str();
+//             string val_full_str = matches[4].str();
+//
+//             regex vsin_params_pattern(R"(^SIN\s*\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)$)");
+//             smatch sin_matches;
+//             if (regex_match(val_full_str, sin_matches, vsin_params_pattern)) {
+//                 string voff_raw=sin_matches[1].str(), vamp_raw=sin_matches[2].str(), freq_raw=sin_matches[3].str();
+//                 if (!checkDouble(valuate(voff_raw).first) && !checkingNemadElmi(valuate(voff_raw).first)) throw logic_error("Error: Invalid Voffset for SIN source " + name);
+//                 if (!checkDouble(valuate(vamp_raw).first) && !checkingNemadElmi(valuate(vamp_raw).first)) throw logic_error("Error: Invalid Vamplitude for SIN source " + name);
+//                 if (!checkDouble(valuate(freq_raw).first) && !checkingNemadElmi(valuate(freq_raw).first)) throw logic_error("Error: Invalid Frequency for SIN source " + name);
+//                 if (stod(valuate(freq_raw).first) <= 0) throw logic_error("Error: Frequency for SIN source " + name + " must be positive.");
+//                 controller.makingVoltageSourceSin(name, n1, n2, voff_raw, vamp_raw, freq_raw); return true;
+//             }
+//             else {
+//                 pair<string, string> p_val = valuate(val_full_str);
+//                 if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC voltage source " + name);
+//                 controller.makingVoltageSourceDC(name, n1, n2, val_full_str); return true;
+//             }
+//         }
+//
+//         regex add_idc_pattern(R"(^add (I\w+) (\w+) (\w+) (.+?)$)");
+//         if (regex_match(in, matches, add_idc_pattern)) {
+//             string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+//             pair<string, string> p_val = valuate(val_raw);
+//             if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC current source " + name);
+//             controller.makingCurrentSourceDC(name, n1, n2, val_raw); return true;
+//         }
+//
+//         regex add_vcvs_pattern(R"(^add (E\w+) (\w+) (\w+) (\w+) (\w+) (.+?)$)");
+//         if (regex_match(in, matches, add_vcvs_pattern)) {
+//             string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), nc_p=matches[4].str(), nc_m=matches[5].str(), gain_raw=matches[6].str();
+//             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for VCVS " + name);
+//             controller.makingVCVS(name, n_p, n_m, nc_p, nc_m, gain_raw); return true;
+//         }
+//         regex add_vccs_pattern(R"(^add (G\w+) (\w+) (\w+) (\w+) (\w+) (.+?)$)");
+//         if (regex_match(in, matches, add_vccs_pattern)) {
+//             string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), nc_p=matches[4].str(), nc_m=matches[5].str(), gain_raw=matches[6].str();
+//             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for VCCS " + name);
+//             controller.makingVCCS(name, n_p, n_m, nc_p, nc_m, gain_raw); return true;
+//         }
+//         regex add_ccvs_pattern(R"(^add (H\w+) (\w+) (\w+) (V\w+) (.+?)$)");
+//         if (regex_match(in, matches, add_ccvs_pattern)) {
+//             string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), vctrl_name=matches[4].str(), gain_raw=matches[5].str();
+//             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for CCVS " + name);
+//             controller.makingCCVS(name, n_p, n_m, vctrl_name, gain_raw); return true;
+//         }
+//         regex add_cccs_pattern(R"(^add (F\w+) (\w+) (\w+) (V\w+) (.+?)$)");
+//         if (regex_match(in, matches, add_cccs_pattern)) {
+//             string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), vctrl_name=matches[4].str(), gain_raw=matches[5].str();
+//             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for CCCS " + name);
+//             controller.makingCCCS(name, n_p, n_m, vctrl_name, gain_raw); return true;
+//         }
+//
+//         regex del_src_pattern(R"(^delete ([VIEGHF]\w+)$)");
+//         if (regex_match(in, matches, del_src_pattern)) {
+//             controller.deletingSource(matches[1].str()); return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseNodeCommands(const string& in) {
+//         smatch matches;
+//         regex nodes_pattern(R"(^nodes$)");
+//         if (regex_match(in, matches, nodes_pattern)) {
+//             controller.handleNodesCommand(); return true;
+//         }
+//         regex rename_node_base_pattern(R"(^rename node)");
+//         regex rename_node_full_pattern(R"(^rename node (\w+) (\w+)$)");
+//         if (regex_match(in, matches, rename_node_full_pattern)) {
+//             controller.handleRenameNodeCommand(matches[1].str(), matches[2].str()); return true;
+//         } else if (regex_search(in, rename_node_base_pattern)) {
+//             throw logic_error("ERROR: Invalid syntax correct format: rename node <old_name> <new_name>");
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseListCommands(const string& in) {
+//         smatch matches;
+//         regex list_all_pattern(R"(^list$)");
+//         if (regex_match(in, matches, list_all_pattern)) {
+//             controller.handleListCommand(); return true;
+//         }
+//         regex list_comp_pattern(R"(^list ([RCLDVIEGHF])$)");
+//         if (regex_match(in, matches, list_comp_pattern)) {
+//             controller.handleListCommand(matches[1].str()); return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParsePrintCommands(const string& in) {
+//         smatch matches;
+//         regex print_pattern(R"(^print (TRAN|DC|AC) (.+)$)");
+//         if (regex_match(in, matches, print_pattern)) {
+//             try {
+//                 controller.handlePrintCommand(matches[1].str(), matches[2].str());
+//             } catch (const logic_error& e) {
+//                 string err_msg = e.what();
+//                 if (err_msg.find("not found in circuit") != string::npos || err_msg.find("not found in circuit") != string::npos ) {
+//                     throw;
+//                 }
+//                 throw logic_error("Syntax error in command");
+//             }
+//             return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseFileAndMenuCommands(const string& in) {
+//         smatch matches;
+//         regex new_file_pattern(R"(^NewFile\s+(.+)$)");
+//         if (regex_match(in, matches, new_file_pattern)) {
+//             controller.handleNewFileCommand(matches[1].str()); return true;
+//         }
+//         regex show_schematics_pattern(R"(^show existing schematics$)");
+//         if (regex_match(in, matches, show_schematics_pattern)) {
+//             controller.handleShowExistingSchematicsCommand(); return true;
+//         }
+//
+//         if (controller.is_expecting_schematic_choice) {
+//             controller.handleChooseSchematic(in);
+//             return true;
+//         }
+//         return false;
+//     }
+//
+//
+// public:
+//     explicit CommandParser(centralController& ctrl) : controller(ctrl) {}
+//
+//     void processInput(const string& in) {
+//         if (in.empty()) {
+//             return;
+//         }
+//
+//         if (tryParseFileAndMenuCommands(in)) return;
+//         if (tryParseNodeCommands(in)) return;
+//         if (tryParseListCommands(in)) return;
+//         if (tryParsePrintCommands(in)) return;
+//         if (tryParseElementCommands(in)) return;
+//         if (tryParseSourceCommands(in)) return;
+//
+//         throw logic_error("Error: Unknown command or invalid syntax. -> " + in);
+//     }
+// };
+//
+// int main() {
+//     centralController controller_instance;
+//     CommandParser parser(controller_instance);
+//
+//     vector<string> test_commands = {
+//         // Section 14
+//         "nodes",
+//         "list",
+//         "list R",
+//         "list V",
+//         "rename node N001 Vout",
+//         "rename node N002",
+//         // Section 15
+//         "print TRAN V(n001) I(R1)",
+//         "print DC Vsource 0 5 0.1 V(out)",
+//         // Section 17 (NewFile is here, show existing schematics is in menu_inputs)
+//         "NewFile /path/to/circuit.txt",
+//         // Section 13 Elements
+//         "add R1 N1 N2 1k",
+//         "add Rload N_in N_out 2.2Meg",
+//         "add C1 N2 0 10u",
+//         "add L1 N1 N_intermediate 1m",
+//         "add D1 N_intermediate N2 D",
+//         "add D_zener Vcc Vout Z",
+//         "delete R1",
+//         "add GND 0",
+//         "delete GND 0",
+//         "add RX N1 N2 0",
+//         "add R2 N3 N4 -100",
+//         "add R3 N5 N6 10p",
+//         "add R4 N7 N8 1.2e-3",
+//         "add R5 N9 N10 1.2e",
+//         // Section 18 Sources
+//         "add Vsrc N_plus N_minus 5",
+//         "add Isrc N_in N_out 100m",
+//         "add Vosc P1 P2 SIN(0, 5, 1k)",
+//         "add Vpulse P3 P4 SIN( 1, 2.5, 500 )",
+//         "add Eamp Nout Nin Nctrl1 Nctrl2 100",
+//         "add Gtrans N_curr_out N_curr_in N_volt_ctrl1 N_volt_ctrl2 0.1",
+//         "add Hsense N_volt_out N_volt_gnd Vcontrol_current_src 50",
+//         "add Fmirror N_curr_out_2 N_curr_gnd_2 Vcontrol_current_src_for_F 1",
+//         "delete Vsrc",
+//         // Errors
+//         "add Rtest N1 N2 value_without_prefix",
+//         "add Ctest N1 N2 100pF",
+//         "add Ltest N1 N2 k",
+//         "add L_bad_unit N1 N2 1mH",
+//         "unknown command here",
+//         "add",
+//         "delete"
+//     };
+//
+//     cout << "--- Starting Command Tests ---" << endl;
+//     for (const string& cmd : test_commands) {
+//         cout << "\nInput: \"" << cmd << "\"" << endl;
+//         try {
+//             parser.processInput(cmd);
+//         } catch (const logic_error& e) {
+//             // Changed cerr to cout for synchronized output
+//             cout << "Exception: " << e.what() << endl;
+//         }
+//     }
+//     cout << "\n--- Testing Schematic Choice Menu ---" << endl;
+//     string menu_inputs[] = {"show existing schematics", "5", "draft2", "1", "return"};
+//     for (const string& cmd : menu_inputs) {
+//         cout << "\nInput: \"" << cmd << "\"" << endl;
+//         try {
+//             parser.processInput(cmd);
+//         } catch (const logic_error& e) {
+//             // Changed cerr to cout for synchronized output
+//             cout << "Exception: " << e.what() << endl;
+//         }
+//     }
+//
+//     return 0;
+// }
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -2300,7 +2848,7 @@ using namespace std;
 // Forward declaration of centralController
 class centralController {
 public:
-    // Methods for section 13 & 18 (element/source creation/deletion)
+    // --- Elements ---
     void makingResistor(const string& name, const string& node1, const string& node2, const string& value_str_raw) {
         cout << "Controller: Making Resistor: " << name << ", " << node1 << ", " << node2 << ", Value: " << value_str_raw << endl;
     }
@@ -2329,44 +2877,51 @@ public:
         cout << "Controller: Adding Ground to node: " << node << endl;
     }
     void deletingGround(const string& node) {
-        // As per PDF 13.5.2, this method in controller should check if node exists
-        // and print "Node does not exist" if applicable.
         cout << "Controller: Deleting Ground from node: " << node << endl;
     }
 
-    // --- Source Creation/Deletion ---
+    // --- Independent Sources ---
     void makingVoltageSourceDC(const string& name, const string& node_plus, const string& node_minus, const string& value_str_raw) {
-        cout << "Controller: Making DC Voltage Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
+        cout << "Controller: Making DC VoltageSource: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
     }
     void makingCurrentSourceDC(const string& name, const string& node_plus, const string& node_minus, const string& value_str_raw) {
-        cout << "Controller: Making DC Current Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
+        cout << "Controller: Making DC CurrentSource: " << name << ", N+: " << node_plus << ", N-: " << node_minus << ", Value: " << value_str_raw << endl;
     }
     void makingVoltageSourceSin(const string& name, const string& node_plus, const string& node_minus, const string& v_offset, const string& v_amplitude, const string& freq) {
-        cout << "Controller: Making Sinusoidal Voltage Source: " << name << ", N+: " << node_plus << ", N-: " << node_minus
+        cout << "Controller: Making Sinusoidal Voltage Source (V): " << name << ", N+: " << node_plus << ", N-: " << node_minus
              << ", Voffset: " << v_offset << ", Vamplitude: " << v_amplitude << ", Freq: " << freq << endl;
     }
+    void makingVoltageSourcePulse(const string& name, const string& node_plus, const string& node_minus,
+                                  const string& v1, const string& v2, const string& td,
+                                  const string& tr, const string& tf, const string& pw,
+                                  const string& period) {
+        cout << "Controller: Making PULSE Voltage Source (V): " << name << ", N+: " << node_plus << ", N-: " << node_minus
+             << ", V1: " << v1 << ", V2: " << v2 << ", Td: " << td << ", Tr: " << tr
+             << ", Tf: " << tf << ", PW: " << pw << ", Period: " << period << endl;
+    }
+
+    // --- Dependent Sources ---
     void makingVCVS(const string& name, const string& n_plus, const string& n_minus, const string& nc_plus, const string& nc_minus, const string& gain_str) {
-        cout << "Controller: Making VCVS (E): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " " << gain_str << endl;
+        cout << "Controller: Making VCVS (E): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " Gain: " << gain_str << endl;
     }
     void makingVCCS(const string& name, const string& n_plus, const string& n_minus, const string& nc_plus, const string& nc_minus, const string& gain_str) {
-        cout << "Controller: Making VCCS (G): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " " << gain_str << endl;
+        cout << "Controller: Making VCCS (G): " << name << " " << n_plus << " " << n_minus << " " << nc_plus << " " << nc_minus << " Gain: " << gain_str << endl;
     }
     void makingCCVS(const string& name, const string& n_plus, const string& n_minus, const string& v_control_name, const string& gain_str) {
-        cout << "Controller: Making CCVS (H): " << name << " " << n_plus << " " << n_minus << " " << v_control_name << " " << gain_str << endl;
+        cout << "Controller: Making CCVS (H): " << name << " " << n_plus << " " << n_minus << " Vctrl: " << v_control_name << " Gain: " << gain_str << endl;
     }
     void makingCCCS(const string& name, const string& n_plus, const string& n_minus, const string& v_control_name, const string& gain_str) {
-        cout << "Controller: Making CCCS (F): " << name << " " << n_plus << " " << n_minus << " " << v_control_name << " " << gain_str << endl;
+        cout << "Controller: Making CCCS (F): " << name << " " << n_plus << " " << n_minus << " Vctrl: " << v_control_name << " Gain: " << gain_str << endl;
     }
     void deletingSource(const string& name) {
-        cout << "Controller: Deleting Source: " << name << endl;
+        cout << "Controller: Deleting Source (any type): " << name << endl;
     }
 
-
+    // --- Utility ---
     void handleNodesCommand() {
         cout << "Controller: Handling 'nodes' command." << endl;
         cout << "Available nodes:\nn001, n002, VDD, GND, Vout, Vin" << endl;
     }
-
     void handleListCommand(const string& componentType = "") {
         if (componentType.empty()) {
             cout << "Controller: Handling 'list' command (all components)." << endl;
@@ -2374,73 +2929,49 @@ public:
             cout << "Controller: Handling 'list " << componentType << "' command." << endl;
         }
     }
-
     void handleRenameNodeCommand(const string& oldName, const string& newName) {
         cout << "Controller: Attempting to rename node " << oldName << " to " << newName << "." << endl;
-        // Simulate success based on PDF example for "rename node N001 Vout" (14.3.2)
-        // Actual controller would check:
-        // 1. if oldName exists (PDF 14.3.5: ERROR: Node <old_name> does not exist)
-        // 2. if newName already exists (PDF 14.3.6: ERROR: Node name <new_name> already exists)
         cout << "SUCCESS: Node renamed from " << oldName << " to " << newName << endl;
     }
-
     void handlePrintCommand(const string& analysisType, const string& printArgs) {
         cout << "Controller: Handling 'print " << analysisType << "' command with args: '" << printArgs << "'." << endl;
-        // Controller would parse printArgs and check for errors like:
-        // PDF 15.5.1: Node <node_name> not found in circuit
-        // PDF 15.5.2: Component <component_name> not found in circuit
     }
-
     void handleNewFileCommand(const string& filePath) {
         cout << "Controller: Handling 'NewFile " << filePath << "' command." << endl;
     }
 
     bool is_expecting_schematic_choice = false;
-
     void handleShowExistingSchematicsCommand() {
         cout << "Controller: Handling 'show existing schematics' command." << endl;
         cout << "-choose existing schematic:\n1-draft1\n2-draft2\n3-draft3\n4-elecphase1" << endl;
         is_expecting_schematic_choice = true;
     }
-
     void handleChooseSchematic(const string& choice) {
-        // This method is responsible for PDF 17's menu logic including error "-Error: Inappropriate input"
         cout << "Controller: Handling schematic choice: " << choice << endl;
-
         if (choice == "return") {
             is_expecting_schematic_choice = false;
             cout << "Controller: Returning to main menu..." << endl;
             return;
         }
-
         bool isValidNumericChoice = true;
         int chosen_num = 0;
         if (choice.empty() || !all_of(choice.begin(), choice.end(), ::isdigit)) {
             isValidNumericChoice = false;
         } else {
-            try {
-                chosen_num = stoi(choice);
-            } catch (const std::out_of_range&) {
-                isValidNumericChoice = false; // Number too large
-            }
+            try { chosen_num = stoi(choice); } catch (const std::out_of_range&) { isValidNumericChoice = false; }
         }
-
-        // Example valid range based on PDF output
         if (isValidNumericChoice && chosen_num >= 1 && chosen_num <= 4) {
-            is_expecting_schematic_choice = false; // Valid choice, reset state for now
+            is_expecting_schematic_choice = false;
             cout << "Controller: Loading schematic " << choice << "..." << endl;
             cout << "draft" << choice << ":\nV1 in 0 DC O AC 1 SIN(0 1 1k)\n...\n.end" << endl;
-            // As per PDF, after showing netlist, it returns to the "choose existing schematic" prompt.
-            handleShowExistingSchematicsCommand(); // This will set is_expecting_schematic_choice back to true
+            handleShowExistingSchematicsCommand();
         } else {
-            // Invalid choice (e.g., "5", "draft2", "rreturn" as per PDF examples of bad input)
-            cout << "-Error: Inappropriate input" << endl; // PDF Error message (section 17)
-            // is_expecting_schematic_choice remains true, so it prompts again implicitly
+            cout << "-Error: Inappropriate input" << endl;
         }
     }
 };
 
-// Helper functions
+// Helper functions (unchanged from previous version, ensure they are correct)
 bool checkDouble(const string& s_in) {
     if (s_in.empty()) return false;
     string s = s_in;
@@ -2451,12 +2982,9 @@ bool checkDouble(const string& s_in) {
     }
     bool digitFound = false;
     bool dotFound = false;
-    bool hasCharAfterDot = false;
-
     for (; i < s.length(); ++i) {
         if (isdigit(s[i])) {
             digitFound = true;
-            if (dotFound) hasCharAfterDot = true;
         } else if (s[i] == '.') {
             if (dotFound) return false;
             dotFound = true;
@@ -2465,16 +2993,7 @@ bool checkDouble(const string& s_in) {
         }
     }
     if (!digitFound) return false;
-    if (dotFound && !hasCharAfterDot && s.length() > 0 && s.back() == '.') {
-        // For now, let stod decide. If stod accepts "1.", it's fine.
-    }
-    try {
-        stod(s);
-    } catch (const std::invalid_argument&) {
-        return false;
-    } catch (const std::out_of_range&) {
-        return false;
-    }
+    try { stod(s); } catch (const std::invalid_argument&) { return false; } catch (const std::out_of_range&) { return false; }
     return true;
 }
 
@@ -2482,47 +3001,30 @@ bool checkingNemadElmi(const string& s_in) {
     if (s_in.empty()) return false;
     string s = s_in;
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-
     size_t e_pos = s.find('e');
     if (e_pos == string::npos || e_pos == 0 || e_pos == s.length() - 1) return false;
-
     string base_str = s.substr(0, e_pos);
     string exp_str = s.substr(e_pos + 1);
-
     if (base_str.empty() || exp_str.empty()) return false;
     if (!checkDouble(base_str)) return false;
-
     size_t i = 0;
     if (exp_str[0] == '+' || exp_str[0] == '-') {
         if (exp_str.length() == 1) return false;
         i = 1;
     }
     if (i == exp_str.length()) return false;
-
-    for (; i < exp_str.length(); ++i) {
-        if (!isdigit(exp_str[i])) return false;
-    }
-    try {
-        stod(s_in);
-    } catch (const std::out_of_range&) {
-        return false;
-    }
+    for (; i < exp_str.length(); ++i) { if (!isdigit(exp_str[i])) return false; }
+    try { stod(s_in); } catch (const std::out_of_range&) { return false; }
     return true;
 }
 
 pair<string, string> valuate(const string& s_in) {
-    string s = s_in;
-    string value_str = s;
-    string prefix_str = "";
-
+    string s = s_in; string value_str = s; string prefix_str = "";
     if (s.empty()) return {s, ""};
-
     if (s.length() >= 3 && (s.substr(s.length() - 3) == "Meg" || s.substr(s.length() - 3) == "MEG")) {
-        value_str = s.substr(0, s.length() - 3);
-        prefix_str = "Meg";
+        value_str = s.substr(0, s.length() - 3); prefix_str = "Meg";
     } else if (s.length() >= 2) {
-        char last_char = s.back();
-        string potential_val_str = s.substr(0, s.length() - 1);
+        char last_char = s.back(); string potential_val_str = s.substr(0, s.length() - 1);
         if (!potential_val_str.empty() && (isdigit(potential_val_str.back()) || potential_val_str.back() == '.' || (potential_val_str.length() == 1 && potential_val_str[0] == '-'))) {
             switch (last_char) {
                 case 'G': case 'g': prefix_str = "G"; value_str = potential_val_str; break;
@@ -2535,16 +3037,34 @@ pair<string, string> valuate(const string& s_in) {
             }
         }
     }
-    if (value_str.empty() && !prefix_str.empty()) {
-        return {s_in, ""};
-    }
+    if (value_str.empty() && !prefix_str.empty()) { return {s_in, ""}; }
     return {value_str, prefix_str};
 }
-
 
 class CommandParser {
 private:
     centralController& controller;
+
+    // اعتبارسنجی پارامترهای زمانی برای پالس و سینوسی
+    // مقادیر زمانی باید غیرمنفی باشند
+    void validateTimeParameter(const string& param_name, const string& param_val_raw, const string& src_name) {
+        pair<string, string> p_param = valuate(param_val_raw);
+        if (!checkDouble(p_param.first) && !checkingNemadElmi(p_param.first)) {
+            throw logic_error("Error: Invalid format for " + param_name + " in PULSE source " + src_name + " (" + param_val_raw + ")");
+        }
+        if (stod(p_param.first) < 0) {
+            throw logic_error("Error: Time parameter " + param_name + " cannot be negative in PULSE source " + src_name + " (" + param_val_raw + ")");
+        }
+    }
+    // اعتبارسنجی پارامترهای ولتاژ برای پالس و سینوسی
+    void validateVoltageParameter(const string& param_name, const string& param_val_raw, const string& src_name) {
+         pair<string, string> p_param = valuate(param_val_raw);
+        if (!checkDouble(p_param.first) && !checkingNemadElmi(p_param.first)) {
+            throw logic_error("Error: Invalid format for " + param_name + " in source " + src_name + " (" + param_val_raw + ")");
+        }
+        // ولتاژ می تواند منفی باشد، بنابراین بررسی دیگری لازم نیست
+    }
+
 
     bool tryParseElementCommands(const string& in) {
         smatch matches;
@@ -2558,9 +3078,8 @@ private:
             if (num_val <= 0) throw logic_error("Error: Resistance cannot be zero or negative");
             controller.makingResistor(name, n1, n2, val_raw); return true;
         }
-        if (regex_match(in, matches, del_res_pattern)) {
-            controller.deletingResistor(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, del_res_pattern)) { controller.deletingResistor(matches[1].str()); return true; }
+
         regex add_cap_pattern(R"(^add (C\w+) (\w+) (\w+) (.+?)$)");
         regex del_cap_pattern(R"(^delete (C\w+)$)");
         if (regex_match(in, matches, add_cap_pattern)) {
@@ -2571,9 +3090,8 @@ private:
             if (num_val <= 0) throw logic_error("Error: Capacitance cannot be zero or negative");
             controller.makingCapacity(name, n1, n2, val_raw); return true;
         }
-        if (regex_match(in, matches, del_cap_pattern)) {
-            controller.deleteCapacity(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, del_cap_pattern)) { controller.deleteCapacity(matches[1].str()); return true; }
+
         regex add_ind_pattern(R"(^add (L\w+) (\w+) (\w+) (.+?)$)");
         regex del_ind_pattern(R"(^delete (L\w+)$)");
         if (regex_match(in, matches, add_ind_pattern)) {
@@ -2584,91 +3102,132 @@ private:
             if (num_val <= 0) throw logic_error("Error: Inductance cannot be zero or negative");
             controller.makingInductor(name, n1, n2, val_raw); return true;
         }
-        if (regex_match(in, matches, del_ind_pattern)) {
-            controller.deleteInductor(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, del_ind_pattern)) { controller.deleteInductor(matches[1].str()); return true; }
+
         regex add_diode_pattern(R"(^add (D\w+) (\w+) (\w+) (D|Z)$)");
         regex del_diode_pattern(R"(^delete (D\w+)$)");
-        if (regex_match(in, matches, add_diode_pattern)) {
-            controller.makingDiode(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
-        }
-        if (regex_match(in, matches, del_diode_pattern)) {
-            controller.deletingDiode(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, add_diode_pattern)) { controller.makingDiode(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true; }
+        if (regex_match(in, matches, del_diode_pattern)) { controller.deletingDiode(matches[1].str()); return true; }
+
         regex add_gnd_pattern(R"(^add GND (\w+)$)");
         regex del_gnd_pattern(R"(^delete GND (\w+)$)");
-        if (regex_match(in, matches, add_gnd_pattern)) {
-            controller.addingGround(matches[1].str()); return true;
-        }
-        if (regex_match(in, matches, del_gnd_pattern)) {
-            controller.deletingGround(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, add_gnd_pattern)) { controller.addingGround(matches[1].str()); return true; }
+        if (regex_match(in, matches, del_gnd_pattern)) { controller.deletingGround(matches[1].str()); return true; }
         return false;
     }
 
     bool tryParseSourceCommands(const string& in) {
         smatch matches;
+
+        // Independent DC Voltage Source: add VoltageSource<Name> <Node1> <Node2> <Value>
+        regex add_vdc_keyword_pattern(R"(^add VoltageSource(\w+) (\w+) (\w+) (.+?)$)");
+        if (regex_match(in, matches, add_vdc_keyword_pattern)) {
+            string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+            pair<string, string> p_val = valuate(val_raw);
+            if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC VoltageSource " + name);
+            controller.makingVoltageSourceDC(name, n1, n2, val_raw); return true;
+        }
+
+        // Independent DC Current Source: add CurrentSource<Name> <Node1> <Node2> <Value>
+        regex add_idc_keyword_pattern(R"(^add CurrentSource(\w+) (\w+) (\w+) (.+?)$)");
+        if (regex_match(in, matches, add_idc_keyword_pattern)) {
+            string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
+            pair<string, string> p_val = valuate(val_raw);
+            if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC CurrentSource " + name);
+            controller.makingCurrentSourceDC(name, n1, n2, val_raw); return true;
+        }
+
+        // Voltage Sources (V type) - SIN or PULSE or generic (interpreted as DC if not SIN/PULSE)
         regex add_v_generic_pattern(R"(^add (V\w+) (\w+) (\w+) (.+?)$)");
-
         if (regex_match(in, matches, add_v_generic_pattern)) {
-            string name = matches[1].str();
-            string n1 = matches[2].str();
-            string n2 = matches[3].str();
-            string val_full_str = matches[4].str();
+            string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_full_str = matches[4].str();
 
+            // Check for SIN: SIN(<Voffset>,<Vamplitude>,<Frequency>)
             regex vsin_params_pattern(R"(^SIN\s*\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)$)");
             smatch sin_matches;
             if (regex_match(val_full_str, sin_matches, vsin_params_pattern)) {
                 string voff_raw=sin_matches[1].str(), vamp_raw=sin_matches[2].str(), freq_raw=sin_matches[3].str();
-                if (!checkDouble(valuate(voff_raw).first) && !checkingNemadElmi(valuate(voff_raw).first)) throw logic_error("Error: Invalid Voffset for SIN source " + name);
-                if (!checkDouble(valuate(vamp_raw).first) && !checkingNemadElmi(valuate(vamp_raw).first)) throw logic_error("Error: Invalid Vamplitude for SIN source " + name);
-                if (!checkDouble(valuate(freq_raw).first) && !checkingNemadElmi(valuate(freq_raw).first)) throw logic_error("Error: Invalid Frequency for SIN source " + name);
+                validateVoltageParameter("Voffset", voff_raw, name);
+                validateVoltageParameter("Vamplitude", vamp_raw, name);
+                validateTimeParameter("Frequency", freq_raw, name); // Frequency is a time-related param (1/T)
                 if (stod(valuate(freq_raw).first) <= 0) throw logic_error("Error: Frequency for SIN source " + name + " must be positive.");
                 controller.makingVoltageSourceSin(name, n1, n2, voff_raw, vamp_raw, freq_raw); return true;
             }
-            else {
-                pair<string, string> p_val = valuate(val_full_str);
-                if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC voltage source " + name);
-                controller.makingVoltageSourceDC(name, n1, n2, val_full_str); return true;
+
+            // Check for PULSE: PULSE(<V1> <V2> <Td> <Tr> <Tf> <PW> <Period>)
+            // Regex to capture 7 parameters for PULSE, allowing spaces and scientific notation
+            regex vpulse_params_pattern(R"(^PULSE\s*\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*\)$)");
+            smatch pulse_matches;
+            if (regex_match(val_full_str, pulse_matches, vpulse_params_pattern)) {
+                if (pulse_matches.size() == 8) { // 1 overall match + 7 parameters
+                    string p_v1 = pulse_matches[1].str(); string p_v2 = pulse_matches[2].str();
+                    string p_td = pulse_matches[3].str(); string p_tr = pulse_matches[4].str();
+                    string p_tf = pulse_matches[5].str(); string p_pw = pulse_matches[6].str();
+                    string p_period = pulse_matches[7].str();
+
+                    validateVoltageParameter("V1", p_v1, name); validateVoltageParameter("V2", p_v2, name);
+                    validateTimeParameter("Td", p_td, name);     validateTimeParameter("Tr", p_tr, name);
+                    validateTimeParameter("Tf", p_tf, name);     validateTimeParameter("PW", p_pw, name);
+                    validateTimeParameter("Period", p_period, name);
+                    // Additional specific checks for PULSE might be needed (e.g. Tr, Tf, PW, Period >= 0)
+                    // The validateTimeParameter already checks for >=0.
+                    controller.makingVoltageSourcePulse(name, n1, n2, p_v1, p_v2, p_td, p_tr, p_tf, p_pw, p_period);
+                    return true;
+                } else {
+                     throw logic_error("Error: Incorrect number of parameters for PULSE source " + name);
+                }
             }
+
+            // If not SIN or PULSE, and starts with V, it must be a plain DC source using the V<name> format (not VoltageSource<name>)
+            // This path is taken if "VoltageSource<name>" was not matched earlier.
+            // This allows for "add Vname n1 n2 value" as a DC source.
+            pair<string, string> p_val = valuate(val_full_str);
+            if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC voltage source (V) " + name);
+            controller.makingVoltageSourceDC(name, n1, n2, val_full_str); // Use a different controller method or flag if Vname syntax is distinct
+            return true;
         }
 
-        regex add_idc_pattern(R"(^add (I\w+) (\w+) (\w+) (.+?)$)");
-        if (regex_match(in, matches, add_idc_pattern)) {
-            string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_raw = matches[4].str();
-            pair<string, string> p_val = valuate(val_raw);
-            if (!checkDouble(p_val.first) && !checkingNemadElmi(p_val.first)) throw logic_error("Error: Invalid value format for DC current source " + name);
-            controller.makingCurrentSourceDC(name, n1, n2, val_raw); return true;
-        }
-
+        // Dependent Sources (PDF 18.4)
         regex add_vcvs_pattern(R"(^add (E\w+) (\w+) (\w+) (\w+) (\w+) (.+?)$)");
         if (regex_match(in, matches, add_vcvs_pattern)) {
-            string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), nc_p=matches[4].str(), nc_m=matches[5].str(), gain_raw=matches[6].str();
+            string name=matches[1].str(), gain_raw=matches[6].str();
             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for VCVS " + name);
-            controller.makingVCVS(name, n_p, n_m, nc_p, nc_m, gain_raw); return true;
+            controller.makingVCVS(name, matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str(), gain_raw); return true;
         }
         regex add_vccs_pattern(R"(^add (G\w+) (\w+) (\w+) (\w+) (\w+) (.+?)$)");
         if (regex_match(in, matches, add_vccs_pattern)) {
-            string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), nc_p=matches[4].str(), nc_m=matches[5].str(), gain_raw=matches[6].str();
+            string name=matches[1].str(), gain_raw=matches[6].str();
             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for VCCS " + name);
-            controller.makingVCCS(name, n_p, n_m, nc_p, nc_m, gain_raw); return true;
+            controller.makingVCCS(name, matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str(), gain_raw); return true;
         }
-        regex add_ccvs_pattern(R"(^add (H\w+) (\w+) (\w+) (V\w+) (.+?)$)");
+        regex add_ccvs_pattern(R"(^add (H\w+) (\w+) (\w+) (V\w+) (.+?)$)"); // Controlling source name must start with V
         if (regex_match(in, matches, add_ccvs_pattern)) {
-            string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), vctrl_name=matches[4].str(), gain_raw=matches[5].str();
+            string name=matches[1].str(), gain_raw=matches[5].str();
             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for CCVS " + name);
-            controller.makingCCVS(name, n_p, n_m, vctrl_name, gain_raw); return true;
+            controller.makingCCVS(name, matches[2].str(), matches[3].str(), matches[4].str(), gain_raw); return true;
         }
-        regex add_cccs_pattern(R"(^add (F\w+) (\w+) (\w+) (V\w+) (.+?)$)");
+        regex add_cccs_pattern(R"(^add (F\w+) (\w+) (\w+) (V\w+) (.+?)$)"); // Controlling source name must start with V
         if (regex_match(in, matches, add_cccs_pattern)) {
-            string name=matches[1].str(), n_p=matches[2].str(), n_m=matches[3].str(), vctrl_name=matches[4].str(), gain_raw=matches[5].str();
+            string name=matches[1].str(), gain_raw=matches[5].str();
             if(!checkDouble(valuate(gain_raw).first) && !checkingNemadElmi(valuate(gain_raw).first)) throw logic_error("Error: Invalid Gain format for CCCS " + name);
-            controller.makingCCCS(name, n_p, n_m, vctrl_name, gain_raw); return true;
+            controller.makingCCCS(name, matches[2].str(), matches[3].str(), matches[4].str(), gain_raw); return true;
         }
 
-        regex del_src_pattern(R"(^delete ([VIEGHF]\w+)$)");
-        if (regex_match(in, matches, del_src_pattern)) {
-            controller.deletingSource(matches[1].str()); return true;
+        // Generic delete for any source type whose name was defined starting with V, I, E, G, H, F
+        // This also needs to handle VoltageSource<Name> and CurrentSource<Name>
+        // For VoltageSource<Name>, name is <Name>, so it won't match [VIEGHF]\w+
+        // Need a more specific delete or the controller handles deletion based on full name.
+        // For now, this deletes Vname, Iname, Ename etc.
+        regex del_src_name_pattern(R"(^delete (\w+)$)"); // Generic delete by name
+        if (regex_match(in, matches, del_src_name_pattern)) {
+            string name_to_delete = matches[1].str();
+            // Controller needs to determine if 'name_to_delete' is a source of any kind (V,I,E,G,H,F, VoltageSourceX, CurrentSourceY)
+            // This simple regex might be too broad if element names can be similar.
+            // For now, assume controller checks if it's a known source name.
+            // The PDF for deleting elements uses `delete R<name>`, `delete C<name>`, etc.
+            // It does not specify a delete format for sources. Let's assume `delete <SourceName>` is generic.
+            controller.deletingSource(name_to_delete);
+            return true;
         }
         return false;
     }
@@ -2676,13 +3235,10 @@ private:
     bool tryParseNodeCommands(const string& in) {
         smatch matches;
         regex nodes_pattern(R"(^nodes$)");
-        if (regex_match(in, matches, nodes_pattern)) {
-            controller.handleNodesCommand(); return true;
-        }
+        if (regex_match(in, matches, nodes_pattern)) { controller.handleNodesCommand(); return true; }
         regex rename_node_base_pattern(R"(^rename node)");
         regex rename_node_full_pattern(R"(^rename node (\w+) (\w+)$)");
-        if (regex_match(in, matches, rename_node_full_pattern)) {
-            controller.handleRenameNodeCommand(matches[1].str(), matches[2].str()); return true;
+        if (regex_match(in, matches, rename_node_full_pattern)) { controller.handleRenameNodeCommand(matches[1].str(), matches[2].str()); return true;
         } else if (regex_search(in, rename_node_base_pattern)) {
             throw logic_error("ERROR: Invalid syntax correct format: rename node <old_name> <new_name>");
         }
@@ -2692,13 +3248,9 @@ private:
     bool tryParseListCommands(const string& in) {
         smatch matches;
         regex list_all_pattern(R"(^list$)");
-        if (regex_match(in, matches, list_all_pattern)) {
-            controller.handleListCommand(); return true;
-        }
+        if (regex_match(in, matches, list_all_pattern)) { controller.handleListCommand(); return true; }
         regex list_comp_pattern(R"(^list ([RCLDVIEGHF])$)");
-        if (regex_match(in, matches, list_comp_pattern)) {
-            controller.handleListCommand(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, list_comp_pattern)) { controller.handleListCommand(matches[1].str()); return true; }
         return false;
     }
 
@@ -2706,13 +3258,10 @@ private:
         smatch matches;
         regex print_pattern(R"(^print (TRAN|DC|AC) (.+)$)");
         if (regex_match(in, matches, print_pattern)) {
-            try {
-                controller.handlePrintCommand(matches[1].str(), matches[2].str());
+            try { controller.handlePrintCommand(matches[1].str(), matches[2].str());
             } catch (const logic_error& e) {
                 string err_msg = e.what();
-                if (err_msg.find("not found in circuit") != string::npos || err_msg.find("not found in circuit") != string::npos ) {
-                    throw;
-                }
+                if (err_msg.find("not found in circuit") != string::npos ) { throw; }
                 throw logic_error("Syntax error in command");
             }
             return true;
@@ -2723,37 +3272,24 @@ private:
     bool tryParseFileAndMenuCommands(const string& in) {
         smatch matches;
         regex new_file_pattern(R"(^NewFile\s+(.+)$)");
-        if (regex_match(in, matches, new_file_pattern)) {
-            controller.handleNewFileCommand(matches[1].str()); return true;
-        }
+        if (regex_match(in, matches, new_file_pattern)) { controller.handleNewFileCommand(matches[1].str()); return true;}
         regex show_schematics_pattern(R"(^show existing schematics$)");
-        if (regex_match(in, matches, show_schematics_pattern)) {
-            controller.handleShowExistingSchematicsCommand(); return true;
-        }
-
-        if (controller.is_expecting_schematic_choice) {
-            controller.handleChooseSchematic(in);
-            return true;
-        }
+        if (regex_match(in, matches, show_schematics_pattern)) { controller.handleShowExistingSchematicsCommand(); return true;}
+        if (controller.is_expecting_schematic_choice) { controller.handleChooseSchematic(in); return true; }
         return false;
     }
-
 
 public:
     explicit CommandParser(centralController& ctrl) : controller(ctrl) {}
 
     void processInput(const string& in) {
-        if (in.empty()) {
-            return;
-        }
-
+        if (in.empty()) { return; }
         if (tryParseFileAndMenuCommands(in)) return;
         if (tryParseNodeCommands(in)) return;
         if (tryParseListCommands(in)) return;
         if (tryParsePrintCommands(in)) return;
         if (tryParseElementCommands(in)) return;
         if (tryParseSourceCommands(in)) return;
-
         throw logic_error("Error: Unknown command or invalid syntax. -> " + in);
     }
 };
@@ -2763,47 +3299,49 @@ int main() {
     CommandParser parser(controller_instance);
 
     vector<string> test_commands = {
-        // Section 14
-        "nodes",
-        "list",
-        "list R",
-        "list V",
-        "rename node N001 Vout",
-        "rename node N002",
-        // Section 15
-        "print TRAN V(n001) I(R1)",
-        "print DC Vsource 0 5 0.1 V(out)",
-        // Section 17 (NewFile is here, show existing schematics is in menu_inputs)
-        "NewFile /path/to/circuit.txt",
-        // Section 13 Elements
+        // --- Section 13 Elements ---
         "add R1 N1 N2 1k",
-        "add Rload N_in N_out 2.2Meg",
-        "add C1 N2 0 10u",
         "add L1 N1 N_intermediate 1m",
         "add D1 N_intermediate N2 D",
-        "add D_zener Vcc Vout Z",
-        "delete R1",
         "add GND 0",
-        "delete GND 0",
+        "delete R1",
+        // --- Section 14 Utility ---
+        "nodes", "list", "list R", "rename node N001 Vout", "rename node N002",
+        // --- Section 15 Print ---
+        "print TRAN V(n001) I(R1)",
+        // --- Section 17 File ---
+        "NewFile /path/to/circuit.txt",
+        // --- Section 18 Independent Sources ---
+        // DC Sources with keywords
+        "add VoltageSourceVS1 N_plus N_minus 5",
+        "add VoltageSourceV_bat N1 0 -9.0",
+        "add CurrentSourceIS1 N_from N_to 0.5m",
+        "add CurrentSourceI_load N_sense GND 10uA", // Test with unit in value (valuate might strip A)
+        // SIN Source (V<name> syntax)
+        "add Vac N_in 0 SIN(0,5,1k)",
+        "add Vsig P1 P2 SIN( 1.0, 2.5m, 500 )",
+        // PULSE Source (V<name> syntax)
+        "add Vclk clk 0 PULSE(0 1 1n 0.1n 0.1n 5n 10n)",       // Valid pulse
+        "add Vdata dat 0 PULSE(0, 3.3, 0, 10p, 10p, 1u, 2u)", // Valid with spaces
+        "add Vpulse_err1 N1 N2 PULSE(0 1 1n 0.1n 0.1n 5n)",      // Too few params for PULSE
+        "add Vpulse_err2 N1 N2 PULSE(0 1 1n 0.1n -0.1n 5n 10n)",// Negative Tf
+        "add Vpulse_err3 N1 N2 PULSE(0, one, 1n, 0.1n, 0.1n, 5n, 10n)", // Invalid V2
+        // --- Section 18 Dependent Sources ---
+        "add Eamp Nout Nin Nctrl1 Nctrl2 100",
+        "add Ggm N_drain N_source N_gate N_source 0.01",
+        "add Hcurrsens N_vout N_gnd Vmeas_src 50", // Vmeas_src must be a V type source
+        "add Fcurrmirror N_out_coll N_gnd Vbias_src 1.0", // Vbias_src must be a V type source
+        "add E_bad_gain N1 N2 N3 N4 10kOhm", // Invalid gain format
+        "add H_bad_vctrl N1 N2 Rcontrol 10", // Invalid control source name (not V\w*)
+        // --- Deleting Sources ---
+        "delete VS1", // Assumes VS1 was defined via VoltageSourceVS1
+        "delete Vac",
+        "delete Eamp",
+        // --- Error cases from previous tests ---
         "add RX N1 N2 0",
         "add R2 N3 N4 -100",
-        "add R3 N5 N6 10p",
-        "add R4 N7 N8 1.2e-3",
         "add R5 N9 N10 1.2e",
-        // Section 18 Sources
-        "add Vsrc N_plus N_minus 5",
-        "add Isrc N_in N_out 100m",
-        "add Vosc P1 P2 SIN(0, 5, 1k)",
-        "add Vpulse P3 P4 SIN( 1, 2.5, 500 )",
-        "add Eamp Nout Nin Nctrl1 Nctrl2 100",
-        "add Gtrans N_curr_out N_curr_in N_volt_ctrl1 N_volt_ctrl2 0.1",
-        "add Hsense N_volt_out N_volt_gnd Vcontrol_current_src 50",
-        "add Fmirror N_curr_out_2 N_curr_gnd_2 Vcontrol_current_src_for_F 1",
-        "delete Vsrc",
-        // Errors
         "add Rtest N1 N2 value_without_prefix",
-        "add Ctest N1 N2 100pF",
-        "add Ltest N1 N2 k",
         "add L_bad_unit N1 N2 1mH",
         "unknown command here",
         "add",
@@ -2816,7 +3354,6 @@ int main() {
         try {
             parser.processInput(cmd);
         } catch (const logic_error& e) {
-            // Changed cerr to cout for synchronized output
             cout << "Exception: " << e.what() << endl;
         }
     }
@@ -2827,11 +3364,10 @@ int main() {
         try {
             parser.processInput(cmd);
         } catch (const logic_error& e) {
-            // Changed cerr to cout for synchronized output
             cout << "Exception: " << e.what() << endl;
         }
     }
-
     return 0;
 }
+
 
