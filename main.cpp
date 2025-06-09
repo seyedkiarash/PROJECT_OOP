@@ -5328,5 +5328,1557 @@
 //
 //     return 0;
 // }
-
+//
+// #include <iostream>
+// #include <vector>
+// #include <string>
+// #include <stdexcept>
+// #include <map>
+// #include <cmath>
+// #include <regex>
+// #include <algorithm>
+// #include <iomanip>
+// #include <fstream>      // اضافه شده برای عملیات فایل
+// #include <sstream>      // اضافه شده برای کار با رشته‌ها
+// #include <filesystem>   // اضافه شده برای یافتن فایل‌ها (نیاز به C++17)
+//
+// #include "Eigen/Dense" // کتابخانه Eigen برای ماتریس‌ها
+//
+// #ifndef M_PI
+// #define M_PI 3.14159265358979323846
+// #endif
+//
+// using namespace std;
+//
+// // ==========================================================================================
+// // ||                                    بخش مدل (Model)                                   ||
+// // || این بخش شامل کلاس‌های مربوط به منطق اصلی مدار، المان‌ها و تحلیل‌گرها می‌باشد.         ||
+// // ==========================================================================================
+//
+// /**
+//  * @class Node
+//  * @brief A class to represent a node in an electrical circuit.
+//  *
+//  * This class stores the name, current voltage, and voltage from the previous time step.
+//  */
+// class Node {
+// private:
+//     double voltage;
+//     string name;
+//     double previousVoltage;
+//
+// public:
+//     Node(const string &name, double voltage = 0.0, double prev_voltage = 0.0)
+//             : voltage(voltage), name(name), previousVoltage(prev_voltage) {}
+//
+//     string getName() const { return name; }
+//     double getVoltage() const { return voltage; }
+//     void setVoltage(double v) { voltage = v; }
+//     double getPreviousVoltage() const { return previousVoltage; }
+//     void setPreviousVoltage(double pv) { previousVoltage = pv; }
+//     void updateVoltageForNextStep() { previousVoltage = voltage; }
+//     bool isGround() const { return name == "0" || name == "GND" || name == "gnd"; }
+// };
+//
+// /**
+//  * @class Element
+//  * @brief Base abstract class for all circuit elements.
+//  *
+//  * All other elements inherit from this class.
+//  */
+// class Element {
+// protected:
+//     Node *node1, *node2;
+//     string name;
+// public:
+//     Element(Node* n1, Node* n2, const string &name) : node1(n1), node2(n2), name(name) {
+//         if (!n1 || !n2) throw std::invalid_argument("Element nodes cannot be null for element: " + name);
+//     }
+//     virtual ~Element() = default;
+//     string getName() const { return name; }
+//     Node* getNode1() const { return node1; }
+//     Node* getNode2() const { return node2; }
+//     virtual string getType() const = 0;
+//     virtual string getValueAsString() const {return to_string(getValue()); } // For saving to file
+//     virtual double getValue() const { return 0.0; }
+//     virtual double getCurrent() const { return 0.0; }
+//     virtual void setCurrent(double current) { (void)current; }
+//     virtual void updateValue(double time) { (void)time; }
+// };
+//
+// class Resistor : public Element {
+// private: double resistance;
+// public:
+//     Resistor(Node* n1, Node* n2, const string &name, double res) : Element(n1, n2, name) {
+//         if (res <= 0) throw std::invalid_argument("Resistance must be positive for " + name);
+//         this->resistance = res;
+//     }
+//     string getType() const override { return "R"; } // Matches file format
+//     double getValue() const override { return resistance; }
+//     string getValueAsString() const override { return to_string(resistance); }
+//     void setResistance(double res) { if (res > 0) this->resistance = res; }
+//     double getCurrent() const override { return (node1->getVoltage() - node2->getVoltage()) / resistance; }
+// };
+//
+// class VoltageSource : public Element {
+// public:
+//     enum SourceType { DC, SIN, PULSE };
+// private:
+//     double value;
+//     double currentThroughSource;
+//     SourceType sourceType;
+//     // Parameters for sinusoidal and pulse sources
+//     double dcOffset, amplitude, frequency;
+//     double initialValue, pulsedValue, delayTime, riseTime, fallTime, onTime, period;
+// public:
+//     VoltageSource(Node* n1, Node* n2, const string &name, double dc_val)
+//             : Element(n1, n2, name), value(dc_val), currentThroughSource(0.0), sourceType(DC) {}
+//
+//     void setSinParams(double offset, double amp, double freq) {
+//         sourceType = SIN;
+//         dcOffset = offset;
+//         amplitude = amp;
+//         frequency = freq > 0 ? freq : 0;
+//     }
+//
+//     void setPulseParams(double v1, double v2, double td, double tr, double tf, double ton, double tper) {
+//         sourceType = PULSE;
+//         initialValue = v1;
+//         pulsedValue = v2;
+//         delayTime = td >= 0 ? td : 0;
+//         riseTime = tr > 0 ? tr : 1e-9;
+//         fallTime = tf > 0 ? tf : 1e-9;
+//         onTime = ton >= 0 ? ton : 0;
+//         if (tper <= 0) throw std::invalid_argument("Pulse period for " + name + " must be positive.");
+//         period = tper;
+//     }
+//
+//     void updateValue(double time) override {
+//         if (sourceType == SIN) {
+//             value = dcOffset + amplitude * sin(2 * M_PI * frequency * time);
+//         } else if (sourceType == PULSE) {
+//             if (time < delayTime) {
+//                 value = initialValue;
+//                 return;
+//             }
+//             double timeInCycle = fmod(time - delayTime, period);
+//             if (timeInCycle <= riseTime) {
+//                 value = initialValue + (pulsedValue - initialValue) * (timeInCycle / riseTime);
+//             } else if (timeInCycle <= riseTime + onTime) {
+//                 value = pulsedValue;
+//             } else if (timeInCycle <= riseTime + onTime + fallTime) {
+//                 value = pulsedValue - (pulsedValue - initialValue) * ((timeInCycle - riseTime - onTime) / fallTime);
+//             } else {
+//                 value = initialValue;
+//             }
+//         }
+//     }
+//
+//     void setVoltageValue(double val) {
+//         sourceType = DC;
+//         value = val;
+//     }
+//     string getType() const override { return "V"; } // Matches file format
+//     double getValue() const override { return value; }
+//     string getValueAsString() const override {
+//         if (sourceType == DC) return to_string(value);
+//         if (sourceType == SIN) {
+//             stringstream ss;
+//             ss << "SIN(" << dcOffset << "," << amplitude << "," << frequency << ")";
+//             return ss.str();
+//         }
+//         if (sourceType == PULSE){
+//              stringstream ss;
+//              ss << "PULSE(" << initialValue << " " << pulsedValue << " " << delayTime << " " << riseTime << " " << fallTime << " " << onTime << " " << period << ")";
+//              return ss.str();
+//         }
+//         return to_string(value);
+//     }
+//     double getCurrent() const override { return currentThroughSource; }
+//     void setCurrent(double current) override { this->currentThroughSource = current; }
+// };
+//
+// class CurrentSource : public Element {
+// private: double currentValue;
+// public:
+//     CurrentSource(Node* n1, Node* n2, const string &name, double val) : Element(n1, n2, name), currentValue(val) {}
+//     string getType() const override { return "I"; } // Matches file format
+//     double getValue() const override { return currentValue; }
+//     string getValueAsString() const override { return to_string(currentValue); }
+// };
+//
+// class Capacitor : public Element {
+// private: double capacitance;
+// public:
+//     Capacitor(Node* n1, Node* n2, const string &name, double cap) : Element(n1, n2, name) {
+//         if (cap <= 0) throw std::invalid_argument("Capacitance must be positive for " + name);
+//         this->capacitance = cap;
+//     }
+//     string getType() const override { return "C"; } // Matches file format
+//     double getValue() const override { return capacitance; }
+//     string getValueAsString() const override { return to_string(capacitance); }
+// };
+//
+// class Inductor : public Element {
+// private: double inductance, current, previousCurrent;
+// public:
+//     Inductor(Node* n1, Node* n2, const string &name, double ind)
+//             : Element(n1, n2, name), inductance(ind), current(0.0), previousCurrent(0.0) {
+//         if (ind <= 0) throw std::invalid_argument("Inductance must be positive for " + name);
+//     }
+//     string getType() const override { return "L"; } // Matches file format
+//     double getValue() const override { return inductance; }
+//     string getValueAsString() const override { return to_string(inductance); }
+//     double getCurrent() const override { return current; }
+//     void setCurrent(double c) override { current = c; }
+//     double getPreviousCurrent() const { return previousCurrent; }
+//     void updateCurrentForNextStep() { previousCurrent = current; }
+// };
+//
+// class IdealDiode : public Element {
+// public: enum State { ON, OFF };
+// private: double forwardVoltage; State currentState; double current; string model;
+// public:
+//     IdealDiode(Node* n1, Node* n2, const string& name, const string& model_str, double vf = 0.7)
+//             : Element(n1, n2, name), forwardVoltage(vf), currentState(OFF), current(0.0), model(model_str) {
+//         if (vf < 0) throw std::invalid_argument("Diode forward voltage must be non-negative for " + name);
+//     }
+//     string getType() const override { return "D"; } // Matches file format
+//     string getValueAsString() const override { return model; }
+//     double getForwardVoltage() const { return forwardVoltage; }
+//     State getState() const { return currentState; }
+//     void setState(State state) { currentState = state; }
+//     double getCurrent() const override { return current; }
+//     void setCurrent(double c) override { current = c; }
+// };
+//
+// class VCVS : public Element {
+// private: Node* controlNode1; Node* controlNode2; double gain; double current;
+// public:
+//     VCVS(Node* n1, Node* n2, const string& name, Node* cn1, Node* cn2, double g)
+//             : Element(n1, n2, name), controlNode1(cn1), controlNode2(cn2), gain(g), current(0.0) {}
+//     string getType() const override { return "E"; } // Matches file format
+//     double getValue() const override { return gain; }
+//     string getValueAsString() const override {
+//         stringstream ss;
+//         ss << controlNode1->getName() << " " << controlNode2->getName() << " " << to_string(gain);
+//         return ss.str();
+//     }
+//     Node* getControlNode1() const { return controlNode1; }
+//     Node* getControlNode2() const { return controlNode2; }
+//     double getCurrent() const override { return current; }
+//     void setCurrent(double c) override { current = c; }
+// };
+//
+// class VCCS : public Element {
+// private: Node* controlNode1; Node* controlNode2; double gain;
+// public:
+//     VCCS(Node* n1, Node* n2, const string& name, Node* cn1, Node* cn2, double g)
+//             : Element(n1, n2, name), controlNode1(cn1), controlNode2(cn2), gain(g) {}
+//     string getType() const override { return "G"; } // Matches file format
+//     double getValue() const override { return gain; }
+//     string getValueAsString() const override {
+//         stringstream ss;
+//         ss << controlNode1->getName() << " " << controlNode2->getName() << " " << to_string(gain);
+//         return ss.str();
+//     }
+//     Node* getControlNode1() const { return controlNode1; }
+//     Node* getControlNode2() const { return controlNode2; }
+// };
+//
+// class CCVS : public Element {
+// private: string controlVoltageSourceName; double gain; double current;
+// public:
+//     CCVS(Node* n1, Node* n2, const string& name, const string& cvs_name, double g)
+//             : Element(n1, n2, name), controlVoltageSourceName(cvs_name), gain(g), current(0.0) {}
+//     string getType() const override { return "H"; } // Matches file format
+//     double getValue() const override { return gain; }
+//     string getValueAsString() const override {
+//         stringstream ss;
+//         ss << controlVoltageSourceName << " " << to_string(gain);
+//         return ss.str();
+//     }
+//     string getControlVoltageSourceName() const { return controlVoltageSourceName; }
+//     double getCurrent() const override { return current; }
+//     void setCurrent(double c) override { current = c; }
+// };
+//
+// class CCCS : public Element {
+// private: string controlVoltageSourceName; double gain;
+// public:
+//     CCCS(Node* n1, Node* n2, const string& name, const string& cvs_name, double g)
+//             : Element(n1, n2, name), controlVoltageSourceName(cvs_name), gain(g) {}
+//     string getType() const override { return "F"; } // Matches file format
+//     double getValue() const override { return gain; }
+//     string getValueAsString() const override {
+//         stringstream ss;
+//         ss << controlVoltageSourceName << " " << to_string(gain);
+//         return ss.str();
+//     }
+//     string getControlVoltageSourceName() const { return controlVoltageSourceName; }
+// };
+//
+// /**
+//  * @class MakingMNA
+//  * @brief Class to manage the circuit, build MNA matrices, and vector Z.
+//  */
+// class MakingMNA {
+// private:
+//     vector<Node *> allNodesInCircuit;
+//     vector<Element *> elementsInCircuit;
+//     Node *groundNodeRef;
+//     map<Node *, int> nodeToIndexMap;
+//     vector<Node *> orderedNonGroundNodes;
+//     map<VoltageSource *, int> vsToIndexMap;
+//     vector<VoltageSource *> orderedVoltageSources;
+//     map<Inductor *, int> inductorToIndexMap;
+//     vector<Inductor *> orderedInductors;
+//     map<IdealDiode *, int> idealDiodeToIndexMap;
+//     vector<IdealDiode *> orderedIdealDiodes;
+//     map<VCVS *, int> vcvsToIndexMap;
+//     vector<VCVS *> orderedVCVS;
+//     map<CCVS *, int> ccvsToIndexMap;
+//     vector<CCVS *> orderedCCVS;
+//     double timeStep_h;
+//
+//     void buildSystemMaps() {
+//         nodeToIndexMap.clear(); orderedNonGroundNodes.clear();
+//         vsToIndexMap.clear(); orderedVoltageSources.clear();
+//         inductorToIndexMap.clear(); orderedInductors.clear();
+//         idealDiodeToIndexMap.clear(); orderedIdealDiodes.clear();
+//         vcvsToIndexMap.clear(); orderedVCVS.clear();
+//         ccvsToIndexMap.clear(); orderedCCVS.clear();
+//
+//         groundNodeRef = nullptr;
+//         for (Node *n: allNodesInCircuit) if (n->isGround()) { groundNodeRef = n; break; }
+//         if (!groundNodeRef) throw std::runtime_error("Error: Ground node not detected.");
+//
+//         int nodeIdx = 0;
+//         for (Node *node: allNodesInCircuit) {
+//             if (!node->isGround()) {
+//                 orderedNonGroundNodes.push_back(node);
+//                 nodeToIndexMap[node] = nodeIdx++;
+//             }
+//         }
+//
+//         for (Element *elem: elementsInCircuit) {
+//             if (auto vs = dynamic_cast<VoltageSource *>(elem)) orderedVoltageSources.push_back(vs);
+//             else if (auto ind = dynamic_cast<Inductor *>(elem)) orderedInductors.push_back(ind);
+//             else if (auto id = dynamic_cast<IdealDiode *>(elem)) orderedIdealDiodes.push_back(id);
+//             else if (auto vcvs = dynamic_cast<VCVS *>(elem)) orderedVCVS.push_back(vcvs);
+//             else if (auto ccvs = dynamic_cast<CCVS *>(elem)) orderedCCVS.push_back(ccvs);
+//         }
+//
+//         for (size_t i = 0; i < orderedVoltageSources.size(); ++i) vsToIndexMap[orderedVoltageSources[i]] = i;
+//         for (size_t i = 0; i < orderedInductors.size(); ++i) inductorToIndexMap[orderedInductors[i]] = i;
+//         for (size_t i = 0; i < orderedIdealDiodes.size(); ++i) idealDiodeToIndexMap[orderedIdealDiodes[i]] = i;
+//         for (size_t i = 0; i < orderedVCVS.size(); ++i) vcvsToIndexMap[orderedVCVS[i]] = i;
+//         for (size_t i = 0; i < orderedCCVS.size(); ++i) ccvsToIndexMap[orderedCCVS[i]] = i;
+//     }
+//
+// public:
+//     MakingMNA(double h = -1.0) : groundNodeRef(nullptr), timeStep_h(h) {}
+//
+//     void setCircuitData(const vector<Node*>& nodes, const vector<Element*>& elements){
+//         this->allNodesInCircuit = nodes;
+//         this->elementsInCircuit = elements;
+//     }
+//
+//     void setTimeStep(double h) { this->timeStep_h = h; }
+//     double getTimeStep() const { return this->timeStep_h; }
+//     Element* getElement(const string& name) {
+//         for (auto* elem : elementsInCircuit) if (elem->getName() == name) return elem;
+//         return nullptr;
+//     }
+//     const vector<Node*>& getOrderedNonGroundNodes() const { return orderedNonGroundNodes; }
+//     const vector<Element*>& getAllElements() const { return elementsInCircuit; }
+//     const vector<Node*>& getAllNodesInCircuit() const { return allNodesInCircuit; }
+//     const vector<VoltageSource*>& getOrderedVoltageSources() const { return orderedVoltageSources; }
+//     const vector<Inductor*>& getOrderedInductors() const { return orderedInductors; }
+//     const vector<IdealDiode*>& getOrderedIdealDiodes() const { return orderedIdealDiodes; }
+//     const vector<VCVS*>& getOrderedVCVS() const { return orderedVCVS; }
+//     const vector<CCVS*>& getOrderedCCVS() const { return orderedCCVS; }
+//
+//     Eigen::MatrixXd getSystemMatrixA(bool isDCAnalysis = false) {
+//         buildSystemMaps();
+//
+//         int numNonGroundNodes = orderedNonGroundNodes.size();
+//         int numVS = orderedVoltageSources.size();
+//         int numL = orderedInductors.size();
+//         int numD = orderedIdealDiodes.size();
+//         int numVCVS = orderedVCVS.size();
+//         int numCCVS = orderedCCVS.size();
+//         int systemSize = numNonGroundNodes + numVS + numL + numD + numVCVS + numCCVS;
+//
+//         if (systemSize == 0) return Eigen::MatrixXd(0,0);
+//         Eigen::MatrixXd A = Eigen::MatrixXd::Zero(systemSize, systemSize);
+//
+//         for (Element* elem : elementsInCircuit) {
+//             Node* n1 = elem->getNode1();
+//             Node* n2 = elem->getNode2();
+//
+//             if (auto res = dynamic_cast<Resistor*>(elem)) {
+//                 double g = 1.0 / res->getValue();
+//                 if (!n1->isGround()) A(nodeToIndexMap[n1], nodeToIndexMap[n1]) += g;
+//                 if (!n2->isGround()) A(nodeToIndexMap[n2], nodeToIndexMap[n2]) += g;
+//                 if (!n1->isGround() && !n2->isGround()) {
+//                     A(nodeToIndexMap[n1], nodeToIndexMap[n2]) -= g;
+//                     A(nodeToIndexMap[n2], nodeToIndexMap[n1]) -= g;
+//                 }
+//             }
+//             else if (auto cap = dynamic_cast<Capacitor*>(elem)) {
+//                 if (!isDCAnalysis) {
+//                     if (this->timeStep_h <= 0) throw std::runtime_error("Time step h is not set for capacitor " + cap->getName());
+//                     double g = cap->getValue() / this->timeStep_h;
+//                     if (!n1->isGround()) A(nodeToIndexMap[n1], nodeToIndexMap[n1]) += g;
+//                     if (!n2->isGround()) A(nodeToIndexMap[n2], nodeToIndexMap[n2]) += g;
+//                     if (!n1->isGround() && !n2->isGround()) {
+//                         A(nodeToIndexMap[n1], nodeToIndexMap[n2]) -= g;
+//                         A(nodeToIndexMap[n2], nodeToIndexMap[n1]) -= g;
+//                     }
+//                 }
+//             }
+//             else if (auto vs = dynamic_cast<VoltageSource*>(elem)) {
+//                 int i = numNonGroundNodes + vsToIndexMap[vs];
+//                 if (!n1->isGround()) { A(nodeToIndexMap[n1], i) += 1.0; A(i, nodeToIndexMap[n1]) += 1.0; }
+//                 if (!n2->isGround()) { A(nodeToIndexMap[n2], i) -= 1.0; A(i, nodeToIndexMap[n2]) -= 1.0; }
+//             }
+//             else if (auto ind = dynamic_cast<Inductor*>(elem)) {
+//                 int i = numNonGroundNodes + numVS + inductorToIndexMap[ind];
+//                 if (isDCAnalysis) { // In DC analysis, inductor is a short circuit
+//                     if (!n1->isGround()) A(i, nodeToIndexMap[n1]) += 1.0;
+//                     if (!n2->isGround()) A(i, nodeToIndexMap[n2]) -= 1.0;
+//                 } else { // In transient analysis
+//                     double l_div_h = ind->getValue() / this->timeStep_h;
+//                     if (!n1->isGround()) { A(nodeToIndexMap[n1], i) += 1.0; A(i, nodeToIndexMap[n1]) += 1.0; }
+//                     if (!n2->isGround()) { A(nodeToIndexMap[n2], i) -= 1.0; A(i, nodeToIndexMap[n2]) -= 1.0; }
+//                     A(i, i) -= l_div_h;
+//                 }
+//             }
+//             else if (auto diode = dynamic_cast<IdealDiode*>(elem)) {
+//                 int i = numNonGroundNodes + numVS + numL + idealDiodeToIndexMap[diode];
+//                 if (diode->getState() == IdealDiode::ON) {
+//                     if (!n1->isGround()) { A(nodeToIndexMap[n1], i) += 1.0; A(i, nodeToIndexMap[n1]) += 1.0; }
+//                     if (!n2->isGround()) { A(nodeToIndexMap[n2], i) -= 1.0; A(i, nodeToIndexMap[n2]) -= 1.0; }
+//                 } else { // OFF State
+//                     A(i, i) = 1.0;
+//                 }
+//             }
+//             else if (auto vccs = dynamic_cast<VCCS*>(elem)) {
+//                 double g = vccs->getValue();
+//                 Node* cn1 = vccs->getControlNode1(); Node* cn2 = vccs->getControlNode2();
+//                 if (!n1->isGround() && !cn1->isGround()) A(nodeToIndexMap[n1], nodeToIndexMap[cn1]) += g;
+//                 if (!n1->isGround() && !cn2->isGround()) A(nodeToIndexMap[n1], nodeToIndexMap[cn2]) -= g;
+//                 if (!n2->isGround() && !cn1->isGround()) A(nodeToIndexMap[n2], nodeToIndexMap[cn1]) -= g;
+//                 if (!n2->isGround() && !cn2->isGround()) A(nodeToIndexMap[n2], nodeToIndexMap[cn2]) += g;
+//             }
+//             else if (auto cccs = dynamic_cast<CCCS*>(elem)) {
+//                 double gain = cccs->getValue();
+//                 VoltageSource* ctrl_vs = nullptr;
+//                 for(auto* vs_ptr : orderedVoltageSources) if(vs_ptr->getName() == cccs->getControlVoltageSourceName()) ctrl_vs = vs_ptr;
+//                 if (!ctrl_vs) throw std::runtime_error("Error: Dependent source '" + cccs->getName() + "' has an undefined control element '" + cccs->getControlVoltageSourceName() + "'.");
+//                 int ctrl_i = numNonGroundNodes + vsToIndexMap[ctrl_vs];
+//                 if (!n1->isGround()) A(nodeToIndexMap[n1], ctrl_i) += gain;
+//                 if (!n2->isGround()) A(nodeToIndexMap[n2], ctrl_i) -= gain;
+//             }
+//             else if (auto vcvs = dynamic_cast<VCVS*>(elem)) {
+//                 int i = numNonGroundNodes + numVS + numL + numD + vcvsToIndexMap[vcvs];
+//                 Node* cn1 = vcvs->getControlNode1(); Node* cn2 = vcvs->getControlNode2();
+//                 double gain = vcvs->getValue();
+//                 if (!n1->isGround()) { A(nodeToIndexMap[n1], i) += 1.0; A(i, nodeToIndexMap[n1]) += 1.0; }
+//                 if (!n2->isGround()) { A(nodeToIndexMap[n2], i) -= 1.0; A(i, nodeToIndexMap[n2]) -= 1.0; }
+//                 if (!cn1->isGround()) A(i, nodeToIndexMap[cn1]) -= gain;
+//                 if (!cn2->isGround()) A(i, nodeToIndexMap[cn2]) += gain;
+//             }
+//             else if (auto ccvs = dynamic_cast<CCVS*>(elem)) {
+//                 int i = numNonGroundNodes + numVS + numL + numD + numVCVS + ccvsToIndexMap[ccvs];
+//                 double gain = ccvs->getValue();
+//                 VoltageSource* ctrl_vs = nullptr;
+//                 for(auto* vs_ptr : orderedVoltageSources) if(vs_ptr->getName() == ccvs->getControlVoltageSourceName()) ctrl_vs = vs_ptr;
+//                 if (!ctrl_vs) throw std::runtime_error("Error: Dependent source '" + ccvs->getName() + "' has an undefined control element '" + ccvs->getControlVoltageSourceName() + "'.");
+//                 int ctrl_i = numNonGroundNodes + vsToIndexMap[ctrl_vs];
+//                 if (!n1->isGround()) {A(i, nodeToIndexMap[n1]) += 1.0;} else {A(i, nodeToIndexMap[n1])=0;};
+//                 if (!n2->isGround()) {A(i, nodeToIndexMap[n2]) -= 1.0;} else {A(i, nodeToIndexMap[n2])=0;};
+//                 A(i, ctrl_i) -= gain;
+//             }
+//         }
+//         return A;
+//     }
+//
+//     Eigen::VectorXd getSystemVectorZ(bool isDCAnalysis = false) {
+//         int systemSize = orderedNonGroundNodes.size() + orderedVoltageSources.size() + orderedInductors.size() + orderedIdealDiodes.size() + orderedVCVS.size() + orderedCCVS.size();
+//         if (systemSize == 0) return Eigen::VectorXd(0);
+//         Eigen::VectorXd Z = Eigen::VectorXd::Zero(systemSize);
+//
+//         for (Element* elem : elementsInCircuit) {
+//             if (auto cs = dynamic_cast<CurrentSource*>(elem)) {
+//                 if (!cs->getNode1()->isGround()) Z(nodeToIndexMap[cs->getNode1()]) -= cs->getValue();
+//                 if (!cs->getNode2()->isGround()) Z(nodeToIndexMap[cs->getNode2()]) += cs->getValue();
+//             } else if (auto cap = dynamic_cast<Capacitor*>(elem)) {
+//                 if (!isDCAnalysis) {
+//                     if (this->timeStep_h <= 0) throw std::runtime_error("Time step h is not set for capacitor " + cap->getName());
+//                     double c_div_h = cap->getValue() / this->timeStep_h;
+//                     double v_n1_prev = cap->getNode1()->getPreviousVoltage();
+//                     double v_n2_prev = cap->getNode2()->getPreviousVoltage();
+//                     double i_eq_cap = c_div_h * (v_n1_prev - v_n2_prev);
+//                     if (!cap->getNode1()->isGround()) Z(nodeToIndexMap[cap->getNode1()]) += i_eq_cap;
+//                     if (!cap->getNode2()->isGround()) Z(nodeToIndexMap[cap->getNode2()]) -= i_eq_cap;
+//                 }
+//             }
+//         }
+//
+//         for (const auto& vs : orderedVoltageSources) Z(orderedNonGroundNodes.size() + vsToIndexMap[vs]) = vs->getValue();
+//         for (const auto& ind : orderedInductors) {
+//             int i = orderedNonGroundNodes.size() + orderedVoltageSources.size() + inductorToIndexMap[ind];
+//             if (!isDCAnalysis) {
+//                 Z(i) = - (ind->getValue() / this->timeStep_h) * ind->getPreviousCurrent();
+//             }
+//         }
+//         for (const auto& diode : orderedIdealDiodes) {
+//             int i = orderedNonGroundNodes.size() + orderedVoltageSources.size() + orderedInductors.size() + idealDiodeToIndexMap[diode];
+//             if (diode->getState() == IdealDiode::ON) Z(i) = diode->getForwardVoltage();
+//         }
+//         return Z;
+//     }
+// };
+//
+// class MNASolver {
+// public:
+//     MNASolver() {}
+//     Eigen::VectorXd solve(const Eigen::MatrixXd& A, const Eigen::VectorXd& Z) {
+//         if (A.rows() == 0 && Z.size() == 0) return Eigen::VectorXd(0);
+//         if (A.rows() != A.cols() || A.rows() != Z.size()) throw std::runtime_error("Matrix/vector dimensions incompatible.");
+//         if (A.rows() == 0) throw std::runtime_error("System of equations is empty.");
+//
+//         Eigen::PartialPivLU<Eigen::MatrixXd> lu(A);
+//         if (A.rows() > 0 && std::abs(lu.determinant()) < 1e-14) {
+//              throw std::runtime_error("Error: System matrix is singular or ill-conditioned. The circuit may not be solvable.");
+//         }
+//         return lu.solve(Z);
+//     }
+//
+//     void updateCircuitState(const Eigen::VectorXd& X, MakingMNA& mnaCircuit) {
+//         const auto& nonGroundNodes = mnaCircuit.getOrderedNonGroundNodes();
+//         const auto& voltageSources = mnaCircuit.getOrderedVoltageSources();
+//         const auto& inductors = mnaCircuit.getOrderedInductors();
+//         const auto& idealDiodes = mnaCircuit.getOrderedIdealDiodes();
+//         const auto& vcvs_sources = mnaCircuit.getOrderedVCVS();
+//         const auto& ccvs_sources = mnaCircuit.getOrderedCCVS();
+//
+//         int numNonGroundNodes = nonGroundNodes.size();
+//         int numVS = voltageSources.size();
+//         int numL = inductors.size();
+//         int numD = idealDiodes.size();
+//         int numVCVS = vcvs_sources.size();
+//
+//         if (static_cast<size_t>(X.size()) != numNonGroundNodes+numVS+numL+numD+numVCVS+ccvs_sources.size()) {
+//             throw std::runtime_error("Solution vector size does not match number of unknowns.");
+//         }
+//
+//         for (size_t i = 0; i < nonGroundNodes.size(); ++i) nonGroundNodes[i]->setVoltage(X(i));
+//         for (size_t i = 0; i < voltageSources.size(); ++i) voltageSources[i]->setCurrent(X(numNonGroundNodes + i));
+//         for (size_t i = 0; i < inductors.size(); ++i) inductors[i]->setCurrent(X(numNonGroundNodes + numVS + i));
+//         for (size_t i = 0; i < idealDiodes.size(); ++i) idealDiodes[i]->setCurrent(X(numNonGroundNodes + numVS + numL + i));
+//         for (size_t i = 0; i < vcvs_sources.size(); ++i) vcvs_sources[i]->setCurrent(X(numNonGroundNodes + numVS + numL + numD + i));
+//         for (size_t i = 0; i < ccvs_sources.size(); ++i) ccvs_sources[i]->setCurrent(X(numNonGroundNodes + numVS + numL + numD + numVCVS + i));
+//     }
+// };
+//
+// class TransientAnalysis {
+// private:
+//     MakingMNA& mnaCircuit;
+//     MNASolver solver;
+//     double t_step, t_stop;
+// public:
+//     TransientAnalysis(MakingMNA& circuit, double step, double stop)
+//             : mnaCircuit(circuit), solver(), t_step(step), t_stop(stop) {
+//         if (t_step <= 0 || t_stop <= 0 || t_step > t_stop) {
+//             throw std::invalid_argument("Invalid time parameters for transient analysis.");
+//         }
+//     }
+//
+//     void run(const vector<string>& output_vars) {
+//         double current_time = 0.0;
+//
+//         cout << "Time(s)\t";
+//         for (const auto& var : output_vars) cout << var << "\t";
+//         cout << endl;
+//         cout << "----------------------------------------------------------------" << endl;
+//
+//         mnaCircuit.setTimeStep(t_step);
+//
+//         while (current_time <= t_stop) {
+//             for (auto* elem : mnaCircuit.getAllElements()) {
+//                 elem->updateValue(current_time);
+//             }
+//
+//             bool diodes_converged = false;
+//             int max_diode_iterations = 25;
+//             int iteration_count = 0;
+//             while (!diodes_converged && iteration_count < max_diode_iterations) {
+//                  iteration_count++;
+//                 diodes_converged = true;
+//
+//                 Eigen::MatrixXd A = mnaCircuit.getSystemMatrixA();
+//                 Eigen::VectorXd Z = mnaCircuit.getSystemVectorZ();
+//                 Eigen::VectorXd X = solver.solve(A, Z);
+//                 solver.updateCircuitState(X, mnaCircuit);
+//
+//                 for (auto* diode_ptr : mnaCircuit.getOrderedIdealDiodes()) {
+//                     IdealDiode::State old_state = diode_ptr->getState();
+//                     double v_anode = diode_ptr->getNode1()->getVoltage();
+//                     double v_cathode = diode_ptr->getNode2()->getVoltage();
+//                     if (old_state == IdealDiode::OFF) {
+//                         if (v_anode > v_cathode + diode_ptr->getForwardVoltage()) {
+//                             diode_ptr->setState(IdealDiode::ON);
+//                             diodes_converged = false;
+//                         }
+//                     } else { // ON State
+//                         if (diode_ptr->getCurrent() < 0) {
+//                             diode_ptr->setState(IdealDiode::OFF);
+//                             diodes_converged = false;
+//                         }
+//                     }
+//                 }
+//             }
+//             if (!diodes_converged) cout << "Warning: Diode states failed to converge at t=" << current_time << endl;
+//
+//             // Print results
+//             cout << fixed << setprecision(6) << current_time << "\t";
+//             for (const auto& var : output_vars) {
+//                  if (var[0] == 'V' && var[1] == '(') {
+//                     string node_name = var.substr(2, var.length() - 3);
+//                     bool found = false;
+//                     for (auto* node : mnaCircuit.getAllNodesInCircuit()) {
+//                         if (node->getName() == node_name) {
+//                             cout << node->getVoltage() << "\t";
+//                             found = true;
+//                             break;
+//                         }
+//                     }
+//                     if (!found) cout << "NaN\t";
+//                 } else if (var[0] == 'I' && var[1] == '(') {
+//                     string elem_name = var.substr(2, var.length() - 3);
+//                     Element* elem = mnaCircuit.getElement(elem_name);
+//                     if (elem) {
+//                         cout << elem->getCurrent() << "\t";
+//                     } else {
+//                         cout << "NaN\t";
+//                     }
+//                 }
+//             }
+//             cout << endl;
+//
+//             current_time += t_step;
+//
+//             for (auto* node : mnaCircuit.getAllNodesInCircuit()) node->updateVoltageForNextStep();
+//             for (auto* ind : mnaCircuit.getOrderedInductors()) ind->updateCurrentForNextStep();
+//         }
+//     }
+// };
+//
+// class DCSweepAnalysis {
+// private:
+//     MakingMNA& mnaCircuit;
+//     MNASolver solver;
+//     string sweepComponentName;
+//     double startValue, endValue, increment;
+// public:
+//     DCSweepAnalysis(MakingMNA& circuit, const string& compName, double start, double end, double inc)
+//             : mnaCircuit(circuit), solver(), sweepComponentName(compName), startValue(start), endValue(end), increment(inc) {
+//         if (increment == 0) throw std::invalid_argument("DC sweep increment cannot be zero.");
+//         if ((endValue > startValue && increment < 0) || (endValue < startValue && increment > 0)) {
+//             increment = -increment;
+//         }
+//     }
+//     void run(const vector<string>& output_vars) {
+//         Element* sweepElement = mnaCircuit.getElement(sweepComponentName);
+//         if (!sweepElement) throw std::runtime_error("Sweep component '" + sweepComponentName + "' not found.");
+//         auto* sweepVoltageSource = dynamic_cast<VoltageSource*>(sweepElement);
+//         if (!sweepVoltageSource) throw std::runtime_error("Sweep component must be a VoltageSource.");
+//
+//         cout << sweepComponentName << "\t";
+//         for (const auto& var : output_vars) cout << var << "\t";
+//         cout << endl;
+//         cout << "-----------------------------------------------------" << endl;
+//
+//         for (double val = startValue; (increment > 0 ? val <= endValue : val >= endValue) ; val += increment) {
+//             sweepVoltageSource->setVoltageValue(val);
+//
+//             Eigen::MatrixXd A = mnaCircuit.getSystemMatrixA(true);
+//             Eigen::VectorXd Z = mnaCircuit.getSystemVectorZ(true);
+//             Eigen::VectorXd X = solver.solve(A, Z);
+//             solver.updateCircuitState(X, mnaCircuit);
+//
+//             // Print results
+//             cout << fixed << setprecision(6) << val << "\t";
+//             for (const auto& var : output_vars) {
+//                  if (var[0] == 'V' && var[1] == '(') {
+//                     string node_name = var.substr(2, var.length() - 3);
+//                     bool found = false;
+//                     for (auto* node : mnaCircuit.getAllNodesInCircuit()) {
+//                         if (node->getName() == node_name) {
+//                             cout << node->getVoltage() << "\t";
+//                             found = true;
+//                             break;
+//                         }
+//                     }
+//                     if (!found) cout << "NaN\t";
+//                 } else if (var[0] == 'I' && var[1] == '(') {
+//                     string elem_name = var.substr(2, var.length() - 3);
+//                     Element* elem = mnaCircuit.getElement(elem_name);
+//                     if (elem) {
+//                         cout << elem->getCurrent() << "\t";
+//                     } else {
+//                         cout << "NaN\t";
+//                     }
+//                 }
+//             }
+//             cout << endl;
+//         }
+//     }
+// };
+//
+// // ============================================================================================
+// // ||                  بخش کنترلر و نمایش (Controller & View)                                 ||
+// // ||         >>> این بخش برای افزودن قابلیت‌های مدیریت فایل اصلاح شده است <<<                 ||
+// // ============================================================================================
+//
+// // Forward declaration
+// class CommandParser;
+//
+// // Helper functions for input processing
+// bool checkDouble(const string& s);
+// bool checkingNemadElmi(const string& s);
+// pair<string, string> valuate(const string& s);
+// double stringToDouble(const string& s);
+// string trim(const string& str);
+//
+// // Struct to hold analysis parameters
+// struct AnalysisParams {
+//     string type; // "TRAN" or "DC"
+//     vector<string> params;
+// };
+//
+// /**
+//  * @class centralController
+//  * @brief Central controller class to manage all simulator operations.
+//  */
+// class centralController {
+// private:
+//     MakingMNA circuit_manager;
+//     map<string, Node*> nodes_map;
+//     vector<Element*> elements_list;
+//     map<string, Element*> elements_map;
+//     AnalysisParams last_analysis;
+//
+//     // Added variables for file management
+//     bool is_in_file_menu = false;
+//     vector<string> schematic_files;
+//     string schematics_directory = "./circuits";
+//
+//     // Helper method to get or create a node
+//     Node* getNode(const string& name) {
+//         if (nodes_map.find(name) == nodes_map.end()) {
+//             nodes_map[name] = new Node(name);
+//         }
+//         return nodes_map[name];
+//     }
+//
+//     // Method to clear the current circuit from memory
+//     void clearCircuit() {
+//         for (auto const& [name, node_ptr] : nodes_map) {
+//             delete node_ptr;
+//         }
+//         for (auto elem_ptr : elements_list) {
+//             delete elem_ptr;
+//         }
+//         nodes_map.clear();
+//         elements_list.clear();
+//         elements_map.clear();
+//         cout << "Current circuit cleared." << endl;
+//     }
+//
+//     // Method to load available schematic files
+//     void loadAvailableSchematics() {
+//         schematic_files.clear();
+//         try {
+//             if (!filesystem::exists(schematics_directory)) {
+//                 filesystem::create_directory(schematics_directory);
+//             }
+//             for (const auto & entry : filesystem::directory_iterator(schematics_directory)) {
+//                 if (entry.is_regular_file() && entry.path().extension() == ".txt") {
+//                     schematic_files.push_back(entry.path().stem().string());
+//                 }
+//             }
+//             sort(schematic_files.begin(), schematic_files.end());
+//         } catch (const filesystem::filesystem_error& e) {
+//             cerr << "Filesystem error: " << e.what() << endl;
+//         }
+//     }
+//
+//
+// public:
+//     centralController() {
+//         loadAvailableSchematics(); // Load existing files on startup
+//     }
+//
+//     ~centralController() {
+//         clearCircuit();
+//     }
+//
+//     // --- Added methods for file menu ---
+//
+//     bool isInFileMenu() const { return is_in_file_menu; }
+//
+//     void handleShowExistingSchematicsCommand() {
+//         is_in_file_menu = true;
+//         loadAvailableSchematics(); // Ensure the list is up-to-date
+//
+//         cout << "-choose existing schematic:" << endl;
+//         if (schematic_files.empty()) {
+//             cout << " (No schematics found in '" << schematics_directory << "' directory)" << endl;
+//         } else {
+//             for (size_t i = 0; i < schematic_files.size(); ++i) {
+//                 cout << i + 1 << "-" << schematic_files[i] << endl;
+//             }
+//         }
+//         cout << " (Enter number to load, 'NewFile <name>' to save current, or 'return' to exit)" << endl;
+//     }
+//
+//     void handleChooseSchematic(const string& choice, CommandParser* parser);
+//
+//     void handleNewFileCommand(const string& filename) {
+//         if (filename.empty() || filename.find_first_of("\\/:*?\"<>|") != string::npos) {
+//             cout << "Error: Invalid filename." << endl;
+//             return;
+//         }
+//
+//         string full_path = schematics_directory + "/" + filename + ".txt";
+//         ofstream file(full_path);
+//
+//         if (!file.is_open()) {
+//             cout << "Error: Could not create file " << full_path << endl;
+//             return;
+//         }
+//
+//         // Save all elements to the file
+//         for (const auto* elem : elements_list) {
+//              file << elem->getName() << " "
+//                  << elem->getNode1()->getName() << " "
+//                  << elem->getNode2()->getName() << " "
+//                  << elem->getValueAsString() << endl;
+//         }
+//
+//         file.close();
+//         cout << "SUCCESS: Current circuit saved to '" << filename << ".txt'." << endl;
+//
+//         // If in the menu, refresh the menu to show the new file
+//         if (is_in_file_menu) {
+//             handleShowExistingSchematicsCommand();
+//         }
+//     }
+//
+//
+//     // --- Element Management ---
+//     void makingResistor(const string& name, const string& n1_name, const string& n2_name, const string& val_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Resistor " + name + " already exists in the circuit");
+//         double resistance = stringToDouble(val_str);
+//         Node* n1 = getNode(n1_name);
+//         Node* n2 = getNode(n2_name);
+//         Resistor* res = new Resistor(n1, n2, name, resistance);
+//         elements_list.push_back(res);
+//         elements_map[name] = res;
+//         cout << "SUCCESS: Resistor " << name << " added." << endl;
+//     }
+//
+//     void makingCapacity(const string& name, const string& n1_name, const string& n2_name, const string& val_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Capacitor " + name + " already exists in the circuit");
+//         double capacitance = stringToDouble(val_str);
+//         Node* n1 = getNode(n1_name);
+//         Node* n2 = getNode(n2_name);
+//         Capacitor* cap = new Capacitor(n1, n2, name, capacitance);
+//         elements_list.push_back(cap);
+//         elements_map[name] = cap;
+//         cout << "SUCCESS: Capacitor " << name << " added." << endl;
+//     }
+//
+//     void makingInductor(const string& name, const string& n1_name, const string& n2_name, const string& val_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Inductor " + name + " already exists in the circuit");
+//         double inductance = stringToDouble(val_str);
+//         Node* n1 = getNode(n1_name);
+//         Node* n2 = getNode(n2_name);
+//         Inductor* ind = new Inductor(n1, n2, name, inductance);
+//         elements_list.push_back(ind);
+//         elements_map[name] = ind;
+//         cout << "SUCCESS: Inductor " << name << " added." << endl;
+//     }
+//
+//     void makingDiode(const string& name, const string& n1_name, const string& n2_name, const string& model) {
+//         if (elements_map.count(name)) throw logic_error("Error: Diode " + name + " already exists in the circuit");
+//         Node* n1 = getNode(n1_name);
+//         Node* n2 = getNode(n2_name);
+//         IdealDiode* diode = new IdealDiode(n1, n2, name, model);
+//         elements_list.push_back(diode);
+//         elements_map[name] = diode;
+//         cout << "SUCCESS: Diode " << name << " with model " << model << " added." << endl;
+//     }
+//
+//     // --- Source Management ---
+//     void makingVoltageSourceDC(const string& name, const string& n_plus, const string& n_minus, const string& val_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         double voltage = stringToDouble(val_str);
+//         Node* n1 = getNode(n_plus);
+//         Node* n2 = getNode(n_minus);
+//         VoltageSource* vs = new VoltageSource(n1, n2, name, voltage);
+//         elements_list.push_back(vs);
+//         elements_map[name] = vs;
+//         cout << "SUCCESS: DC VoltageSource " << name << " added." << endl;
+//     }
+//
+//     void makingCurrentSourceDC(const string& name, const string& n_plus, const string& n_minus, const string& val_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         double current = stringToDouble(val_str);
+//         Node* n1 = getNode(n_plus);
+//         Node* n2 = getNode(n_minus);
+//         CurrentSource* cs = new CurrentSource(n1, n2, name, current);
+//         elements_list.push_back(cs);
+//         elements_map[name] = cs;
+//         cout << "SUCCESS: DC CurrentSource " << name << " added." << endl;
+//     }
+//
+//     void makingVoltageSourceSin(const string& name, const string& n_plus, const string& n_minus, const string& v_off, const string& v_amp, const string& freq) {
+//          if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         Node* n1 = getNode(n_plus);
+//         Node* n2 = getNode(n_minus);
+//         VoltageSource* vs = new VoltageSource(n1, n2, name, 0.0);
+//         vs->setSinParams(stringToDouble(v_off), stringToDouble(v_amp), stringToDouble(freq));
+//         elements_list.push_back(vs);
+//         elements_map[name] = vs;
+//         cout << "SUCCESS: Sinusoidal Voltage Source " << name << " added." << endl;
+//     }
+//
+//     void makingVoltageSourcePulse(const string& name, const string& n_plus, const string& n_minus,
+//                                   const string& v1, const string& v2, const string& td,
+//                                   const string& tr, const string& tf, const string& pw,
+//                                   const string& period) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         Node* n1 = getNode(n_plus);
+//         Node* n2 = getNode(n_minus);
+//         VoltageSource* vs = new VoltageSource(n1, n2, name, 0.0);
+//         vs->setPulseParams(stringToDouble(v1), stringToDouble(v2), stringToDouble(td), stringToDouble(tr), stringToDouble(tf), stringToDouble(pw), stringToDouble(period));
+//         elements_list.push_back(vs);
+//         elements_map[name] = vs;
+//         cout << "SUCCESS: PULSE Voltage Source " << name << " added." << endl;
+//     }
+//
+//     void makingVCVS(const string& name, const string& n_p, const string& n_m, const string& nc_p, const string& nc_m, const string& gain_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         double gain = stringToDouble(gain_str);
+//         VCVS* vcvs = new VCVS(getNode(n_p), getNode(n_m), name, getNode(nc_p), getNode(nc_m), gain);
+//         elements_list.push_back(vcvs);
+//         elements_map[name] = vcvs;
+//         cout << "SUCCESS: VCVS " << name << " added." << endl;
+//     }
+//
+//     void makingVCCS(const string& name, const string& n_p, const string& n_m, const string& nc_p, const string& nc_m, const string& gain_str) {
+//          if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         double gain = stringToDouble(gain_str);
+//         VCCS* vccs = new VCCS(getNode(n_p), getNode(n_m), name, getNode(nc_p), getNode(nc_m), gain);
+//         elements_list.push_back(vccs);
+//         elements_map[name] = vccs;
+//         cout << "SUCCESS: VCCS " << name << " added." << endl;
+//     }
+//
+//     void makingCCVS(const string& name, const string& n_p, const string& n_m, const string& vctrl_name, const string& gain_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         if (!elements_map.count(vctrl_name) || dynamic_cast<VoltageSource*>(elements_map[vctrl_name]) == nullptr) {
+//             throw logic_error("Error: Control voltage source " + vctrl_name + " not found for CCVS " + name);
+//         }
+//         double gain = stringToDouble(gain_str);
+//         CCVS* ccvs = new CCVS(getNode(n_p), getNode(n_m), name, vctrl_name, gain);
+//         elements_list.push_back(ccvs);
+//         elements_map[name] = ccvs;
+//         cout << "SUCCESS: CCVS " << name << " added." << endl;
+//     }
+//
+//     void makingCCCS(const string& name, const string& n_p, const string& n_m, const string& vctrl_name, const string& gain_str) {
+//         if (elements_map.count(name)) throw logic_error("Error: Source " + name + " already exists in the circuit");
+//         if (!elements_map.count(vctrl_name) || dynamic_cast<VoltageSource*>(elements_map[vctrl_name]) == nullptr) {
+//             throw logic_error("Error: Control voltage source " + vctrl_name + " not found for CCCS " + name);
+//         }
+//         double gain = stringToDouble(gain_str);
+//         CCCS* cccs = new CCCS(getNode(n_p), getNode(n_m), name, vctrl_name, gain);
+//         elements_list.push_back(cccs);
+//         elements_map[name] = cccs;
+//         cout << "SUCCESS: CCCS " << name << " added." << endl;
+//     }
+//
+//     void deletingElement(const string& name) {
+//         if (!elements_map.count(name)) throw logic_error("Error: Cannot delete component; component not found");
+//
+//         Element* elem_to_delete = elements_map[name];
+//
+//         // Remove from list and map
+//         elements_map.erase(name);
+//         elements_list.erase(remove(elements_list.begin(), elements_list.end(), elem_to_delete), elements_list.end());
+//
+//         delete elem_to_delete;
+//         cout << "SUCCESS: Component " << name << " deleted." << endl;
+//     }
+//
+//     void addingGround(const string& node_name){
+//         // In our model, a node named "0" or "GND" is automatically ground.
+//         // This function can ensure the ground node exists.
+//         getNode(node_name); // Ensures the node exists.
+//         cout << "SUCCESS: Node " << node_name << " is designated as a ground reference." << endl;
+//     }
+//
+//     // --- Node and List Management ---
+//     void handleNodesCommand() {
+//         if (nodes_map.empty()) {
+//             cout << "No nodes in the circuit yet." << endl;
+//             return;
+//         }
+//         cout << "Available nodes:" << endl;
+//         for(auto const& [name, node_ptr] : nodes_map) {
+//             cout << name << " ";
+//         }
+//         cout << endl;
+//     }
+//
+//     void handleListCommand(const string& componentType = "") {
+//         if (elements_list.empty()) {
+//             cout << "No elements in the circuit yet." << endl;
+//             return;
+//         }
+//         bool found = false;
+//         cout << "Circuit elements:" << endl;
+//         for(auto const& elem : elements_list) {
+//             bool type_match = false;
+//             string elem_type_prefix = elem->getName().substr(0,1);
+//             if (componentType.empty()) type_match = true;
+//             else if (componentType == elem_type_prefix) type_match = true;
+//
+//             if (type_match) {
+//                 cout << "- " << elem->getName() << " connected between "
+//                      << elem->getNode1()->getName() << " and " << elem->getNode2()->getName() << endl;
+//                 found = true;
+//             }
+//         }
+//         if (!found) {
+//             cout << "No elements of type '" << componentType << "' found." << endl;
+//         }
+//     }
+//
+//     void handleRenameNodeCommand(const string& oldName, const string& newName) {
+//         if (nodes_map.find(oldName) == nodes_map.end()) {
+//             throw logic_error("ERROR: Node " + oldName + " does not exist in the circuit");
+//         }
+//         if (nodes_map.find(newName) != nodes_map.end()) {
+//             throw logic_error("ERROR: Node name " + newName + " already exists");
+//         }
+//         Node* node_ptr = nodes_map[oldName];
+//         nodes_map.erase(oldName);
+//         nodes_map[newName] = node_ptr;
+//         cout << "SUCCESS: Node renamed from " << oldName << " to " << newName << endl;
+//     }
+//
+//     // --- Analysis Management and Execution ---
+//     void defineAnalysis(const string& type, const vector<string>& params) {
+//         last_analysis.type = type;
+//         last_analysis.params = params;
+//         cout << "SUCCESS: " << type << " analysis defined." << endl;
+//     }
+//
+//     void handlePrintCommand(const string& analysisType,
+//                             const vector<string>& analysisParams,
+//                             const string& outputVarsStr) {
+//
+//         vector<string> output_vars;
+//         stringstream ss(outputVarsStr);
+//         string temp;
+//         while (ss >> temp) {
+//             output_vars.push_back(temp);
+//         }
+//
+//         if (output_vars.empty()){
+//             throw logic_error("Error: Missing output variables for print command.");
+//         }
+//
+//         const AnalysisParams* analysis_to_run = nullptr;
+//         AnalysisParams temp_analysis;
+//
+//         if (!analysisParams.empty()){ // Parameters provided in print command
+//             temp_analysis.type = analysisType;
+//             temp_analysis.params = analysisParams;
+//             analysis_to_run = &temp_analysis;
+//         } else if (last_analysis.type == analysisType) { // Use last defined analysis
+//             analysis_to_run = &last_analysis;
+//         } else {
+//             throw logic_error("Error: No analysis parameters provided or defined for " + analysisType);
+//         }
+//
+//         // Prepare circuit for analysis
+//         vector<Node*> nodes_vector;
+//         for(auto const& [name, ptr] : nodes_map) nodes_vector.push_back(ptr);
+//         circuit_manager.setCircuitData(nodes_vector, elements_list);
+//
+//
+//         if (analysis_to_run->type == "TRAN") {
+//             if (analysis_to_run->params.size() < 2) throw logic_error("Error: Not enough parameters for TRAN analysis.");
+//             double tstep = stringToDouble(analysis_to_run->params[0]);
+//             double tstop = stringToDouble(analysis_to_run->params[1]);
+//             TransientAnalysis tran(circuit_manager, tstep, tstop);
+//             tran.run(output_vars);
+//
+//         } else if (analysis_to_run->type == "DC") {
+//             if (analysis_to_run->params.size() < 4) throw logic_error("Error: Not enough parameters for DC analysis.");
+//             string srcName = analysis_to_run->params[0];
+//             double start = stringToDouble(analysis_to_run->params[1]);
+//             double end = stringToDouble(analysis_to_run->params[2]);
+//             double inc = stringToDouble(analysis_to_run->params[3]);
+//             DCSweepAnalysis dc(circuit_manager, srcName, start, end, inc);
+//             dc.run(output_vars);
+//         }
+//     }
+// };
+//
+//
+// // ============================================================================================
+// // ||                  بخش پردازشگر دستورات (View)                                             ||
+// // ||         >>> این بخش برای افزودن قابلیت‌های مدیریت فایل اصلاح شده است <<<                 ||
+// // ============================================================================================
+//
+// string trim(const string& str) {
+//     const string whitespace = " \t\n\r\f\v";
+//     size_t start = str.find_first_not_of(whitespace);
+//     if (string::npos == start) return "";
+//     size_t end = str.find_last_not_of(whitespace);
+//     return str.substr(start, end - start + 1);
+// }
+//
+// bool checkDouble(const string& s_in) {
+//     if (s_in.empty()) return false;
+//     string s = s_in;
+//     size_t i = 0;
+//     if (s[0] == '-') {
+//         if (s.length() == 1) return false;
+//         i = 1;
+//     }
+//     bool digitFound = false;
+//     bool dotFound = false;
+//     for (; i < s.length(); ++i) {
+//         if (isdigit(s[i])) {
+//             digitFound = true;
+//         } else if (s[i] == '.') {
+//             if (dotFound) return false;
+//             dotFound = true;
+//         } else {
+//             return false;
+//         }
+//     }
+//     if (!digitFound) return false;
+//     try { stod(s); } catch (const std::invalid_argument&) { return false; } catch (const std::out_of_range&) { return false; }
+//     return true;
+// }
+//
+// bool checkingNemadElmi(const string& s_in) {
+//     if (s_in.empty()) return false;
+//     string s = s_in;
+//     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+//     size_t e_pos = s.find('e');
+//     if (e_pos == string::npos || e_pos == 0 || e_pos == s.length() - 1) return false;
+//     string base_str = s.substr(0, e_pos);
+//     string exp_str = s.substr(e_pos + 1);
+//     if (base_str.empty() || exp_str.empty()) return false;
+//     if (!checkDouble(base_str)) return false;
+//     size_t i = 0;
+//     if (exp_str[0] == '+' || exp_str[0] == '-') {
+//         if (exp_str.length() == 1) return false;
+//         i = 1;
+//     }
+//     if (i == exp_str.length()) return false;
+//     for (; i < exp_str.length(); ++i) { if (!isdigit(exp_str[i])) return false; }
+//     try { stod(s_in); } catch (const std::out_of_range&) { return false; }
+//     return true;
+// }
+//
+// pair<string, string> valuate(const string& s_in) {
+//     string s = s_in; string value_str = s; string prefix_str = "";
+//     if (s.empty()) return {s, ""};
+//     if (s.length() >= 3 && (s.substr(s.length() - 3) == "Meg" || s.substr(s.length() - 3) == "MEG")) {
+//         value_str = s.substr(0, s.length() - 3); prefix_str = "Meg";
+//     } else if (s.length() >= 2) {
+//         char last_char = s.back(); string potential_val_str = s.substr(0, s.length() - 1);
+//         if (!potential_val_str.empty() && (isdigit(potential_val_str.back()) || potential_val_str.back() == '.' || (potential_val_str.length() == 1 && potential_val_str[0] == '-'))) {
+//             switch (last_char) {
+//                 case 'G': case 'g': prefix_str = "G"; value_str = potential_val_str; break;
+//                 case 'k': case 'K': prefix_str = "k"; value_str = potential_val_str; break;
+//                 case 'm': prefix_str = "m"; value_str = potential_val_str; break;
+//                 case 'u': case 'U': prefix_str = "u"; value_str = potential_val_str; break;
+//                 case 'n': case 'N': prefix_str = "n"; value_str = potential_val_str; break;
+//                 case 'p': case 'P': prefix_str = "p"; value_str = potential_val_str; break;
+//                 case 'f': case 'F': prefix_str = "f"; value_str = potential_val_str; break;
+//             }
+//         }
+//     }
+//     if (value_str.empty() && !prefix_str.empty()) { return {s_in, ""}; }
+//     return {value_str, prefix_str};
+// }
+//
+// double stringToDouble(const string& s_in) {
+//     pair<string, string> p_val = valuate(s_in);
+//     double base_val = stod(p_val.first);
+//     string prefix = p_val.second;
+//
+//     if (prefix == "G" || prefix == "g") return base_val * 1e9;
+//     if (prefix == "Meg") return base_val * 1e6;
+//     if (prefix == "k" || prefix == "K") return base_val * 1e3;
+//     if (prefix == "m") return base_val * 1e-3;
+//     if (prefix == "u" || prefix == "U") return base_val * 1e-6;
+//     if (prefix == "n" || prefix == "N") return base_val * 1e-9;
+//     if (prefix == "p" || prefix == "P") return base_val * 1e-12;
+//     if (prefix == "f" || prefix == "F") return base_val * 1e-15;
+//
+//     return base_val;
+// }
+//
+// class CommandParser {
+// private:
+//     centralController& controller;
+//
+//     void validateParameter(const string& param_name, const string& param_val_raw, const string& context_name, bool allow_zero, bool must_be_positive) {
+//         pair<string, string> p_param = valuate(param_val_raw);
+//         if (!checkDouble(p_param.first) && !checkingNemadElmi(p_param.first)) {
+//             throw logic_error("Error: Invalid format for " + param_name + " in " + context_name + " (" + param_val_raw + ")");
+//         }
+//         double val = stod(p_param.first);
+//         if (must_be_positive && val <= 0) {
+//             throw logic_error("Error: Parameter " + param_name + " must be positive in " + context_name + " (" + param_val_raw + ")");
+//         }
+//         if (!allow_zero && val == 0) {
+//              throw logic_error("Error: Parameter " + param_name + " cannot be zero in " + context_name + " (" + param_val_raw + ")");
+//         }
+//     }
+//
+//     // Parses SPICE-like netlist lines (e.g., from a file)
+//     bool tryParseNetlistLine(const string& in) {
+//         smatch matches;
+//         // This regex is broad, captures <NAME> <NODE1> <NODE2> <...VALUES...>
+//         regex netlist_pattern(R"(^([a-zA-Z]\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, netlist_pattern)) {
+//             string name = matches[1].str();
+//             char type = toupper(name[0]);
+//             string n1 = matches[2].str();
+//             string n2 = matches[3].str();
+//             string value_part = matches[4].str();
+//
+//             // Reconstruct the "add" command to reuse existing parsers
+//             stringstream ss;
+//             ss << "add " << name << " " << n1 << " " << n2 << " " << value_part;
+//             string command = ss.str();
+//
+//             // We must avoid calling processInput recursively to prevent infinite loops.
+//             // So we call the specific parsers.
+//             if (tryParseElementCommands(command) || tryParseSourceCommands(command)) {
+//                 return true;
+//             }
+//         }
+//         return false;
+//     }
+//
+//
+//     bool tryParseElementCommands(const string& in) {
+//         smatch matches;
+//         regex add_res_pattern(R"(^add\s+(R\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_res_pattern)) {
+//             validateParameter("Resistance", matches[4].str(), "Resistor " + matches[1].str(), false, true);
+//             controller.makingResistor(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//
+//         regex add_cap_pattern(R"(^add\s+(C\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_cap_pattern)) {
+//             validateParameter("Capacitance", matches[4].str(), "Capacitor " + matches[1].str(), false, true);
+//             controller.makingCapacity(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//
+//         regex add_ind_pattern(R"(^add\s+(L\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_ind_pattern)) {
+//             validateParameter("Inductance", matches[4].str(), "Inductor " + matches[1].str(), false, true);
+//             controller.makingInductor(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//
+//         regex add_diode_pattern(R"(^add\s+(D\S*)\s+(\S+)\s+(\S+)\s+(D|Z)$)");
+//         if (regex_match(in, matches, add_diode_pattern)) {
+//             controller.makingDiode(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//
+//         regex add_gnd_pattern(R"(^add\s+GND\s+(\S+)$)");
+//         if (regex_match(in, matches, add_gnd_pattern)) {
+//             controller.addingGround(matches[1].str()); return true;
+//         }
+//
+//         regex del_elem_pattern(R"(^delete\s+([RCLD]\S+)$)");
+//         if(regex_match(in, matches, del_elem_pattern)) {
+//             controller.deletingElement(matches[1].str()); return true;
+//         }
+//
+//         return false;
+//     }
+//
+//     bool tryParseSourceCommands(const string& in) {
+//         smatch matches;
+//         regex add_v_generic_pattern(R"(^add\s+(V\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_v_generic_pattern)) {
+//             string name = matches[1].str(); string n1 = matches[2].str(); string n2 = matches[3].str(); string val_full_str = trim(matches[4].str());
+//
+//             regex vsin_params_pattern(R"(^SIN\s*\(\s*(\S+?)\s*,\s*(\S+?)\s*,\s*(\S+?)\s*\)$)");
+//             smatch sin_matches;
+//             if (regex_match(val_full_str, sin_matches, vsin_params_pattern)) {
+//                 validateParameter("Frequency", sin_matches[3].str(), "SIN source " + name, false, true);
+//                 controller.makingVoltageSourceSin(name, n1, n2, sin_matches[1].str(), sin_matches[2].str(), sin_matches[3].str()); return true;
+//             }
+//             regex vpulse_params_pattern(R"(^PULSE\s*\(\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*\)$)");
+//             smatch pulse_matches;
+//             if (regex_match(val_full_str, pulse_matches, vpulse_params_pattern)) {
+//                 validateParameter("Period", pulse_matches[7].str(), "PULSE source " + name, false, true);
+//                 controller.makingVoltageSourcePulse(name, n1, n2, pulse_matches[1].str(), pulse_matches[2].str(), pulse_matches[3].str(), pulse_matches[4].str(), pulse_matches[5].str(), pulse_matches[6].str(), pulse_matches[7].str());
+//                 return true;
+//             }
+//             validateParameter("Value", val_full_str, "DC source " + name, true, false);
+//             controller.makingVoltageSourceDC(name, n1, n2, val_full_str); return true;
+//         }
+//
+//         regex add_i_pattern(R"(^add\s+(I\S*)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if(regex_match(in, matches, add_i_pattern)){
+//             validateParameter("Value", matches[4].str(), "CurrentSource " + matches[1].str(), true, false);
+//             controller.makingCurrentSourceDC(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()); return true;
+//         }
+//
+//         regex add_vcvs_pattern(R"(^add\s+(E\S*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_vcvs_pattern)) {
+//              controller.makingVCVS(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str(), matches[6].str()); return true;
+//         }
+//         regex add_vccs_pattern(R"(^add\s+(G\S*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_vccs_pattern)) {
+//             controller.makingVCCS(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str(), matches[6].str()); return true;
+//         }
+//         regex add_ccvs_pattern(R"(^add\s+(H\S*)\s+(\S+)\s+(\S+)\s+(V\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_ccvs_pattern)) {
+//             controller.makingCCVS(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str()); return true;
+//         }
+//         regex add_cccs_pattern(R"(^add\s+(F\S*)\s+(\S+)\s+(\S+)\s+(V\S+)\s+(.+)$)");
+//         if (regex_match(in, matches, add_cccs_pattern)) {
+//             controller.makingCCCS(matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str(), matches[5].str()); return true;
+//         }
+//
+//         regex del_src_pattern(R"(^delete\s+([VIEGHF]\S+)$)");
+//         if(regex_match(in, matches, del_src_pattern)) {
+//             controller.deletingElement(matches[1].str()); return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseAnalysisDefinitionCommands(const string& in) {
+//         smatch matches;
+//         regex tran_def_pattern(R"(^\.TRAN\s+(\S+)\s+(\S+)(?:\s+(\S+))?(?:\s+(\S+))?\s*$)");
+//         if (regex_match(in, matches, tran_def_pattern)) {
+//             vector<string> params = {matches[1].str(), matches[2].str()};
+//             if(matches[3].matched) params.push_back(matches[3].str());
+//             if(matches[4].matched) params.push_back(matches[4].str());
+//             controller.defineAnalysis("TRAN", params);
+//             return true;
+//         }
+//
+//         regex dc_def_pattern(R"(^\.DC\s+([VI]\w*)\s+(\S+)\s+(\S+)\s+(\S+)\s*$)");
+//         if (regex_match(in, matches, dc_def_pattern)) {
+//             vector<string> params = {matches[1].str(), matches[2].str(), matches[3].str(), matches[4].str()};
+//             controller.defineAnalysis("DC", params);
+//             return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseNodeCommands(const string& in) {
+//         if (in == "nodes") { controller.handleNodesCommand(); return true; }
+//
+//         smatch matches;
+//         regex rename_node_full_pattern(R"(^rename\s+node\s+(\S+)\s+(\S+)$)");
+//         if (regex_match(in, matches, rename_node_full_pattern)) {
+//             controller.handleRenameNodeCommand(matches[1].str(), matches[2].str()); return true;
+//         } else if (in.rfind("rename node", 0) == 0) {
+//             throw logic_error("ERROR: Invalid syntax correct format: rename node <old_name> <new_name>");
+//         }
+//         return false;
+//     }
+//
+//     bool tryParseListCommands(const string& in) {
+//         if (in == "list") { controller.handleListCommand(); return true; }
+//
+//         smatch matches;
+//         regex list_comp_pattern(R"(^list\s+([RCLDVIEGHF])$)");
+//         if (regex_match(in, matches, list_comp_pattern)) {
+//             controller.handleListCommand(matches[1].str()); return true;
+//         }
+//         return false;
+//     }
+//
+//     bool tryParsePrintCommands(const string& in) {
+//         smatch matches;
+//         regex print_base_pattern(R"(^print\s+(TRAN|DC|AC)\s*(.*)$)");
+//         if (regex_match(in, matches, print_base_pattern)) {
+//             string analysisType = matches[1].str();
+//             string remaining_args = trim(matches[2].str());
+//             vector<string> analysisParams;
+//             string outputVarsStr;
+//
+//             stringstream ss(remaining_args);
+//             string word;
+//             vector<string> words;
+//             while(ss >> word) words.push_back(word);
+//
+//             size_t var_start_index = 0;
+//             // Check if analysis parameters are provided in the print command
+//             if (analysisType == "TRAN" && words.size() >= 2) {
+//                 if( (checkDouble(valuate(words[0]).first) || checkingNemadElmi(valuate(words[0]).first)) &&
+//                     (checkDouble(valuate(words[1]).first) || checkingNemadElmi(valuate(words[1]).first)) ){
+//                     analysisParams.push_back(words[0]);
+//                     analysisParams.push_back(words[1]);
+//                     var_start_index = 2;
+//                 }
+//             } else if (analysisType == "DC" && words.size() >= 4) {
+//                  if( (checkDouble(valuate(words[1]).first) || checkingNemadElmi(valuate(words[1]).first)) ){
+//                     analysisParams = {words[0], words[1], words[2], words[3]};
+//                     var_start_index = 4;
+//                  }
+//             }
+//
+//             stringstream vars_ss;
+//             for(size_t i = var_start_index; i < words.size(); ++i) {
+//                 vars_ss << words[i] << " ";
+//             }
+//             outputVarsStr = vars_ss.str();
+//
+//             controller.handlePrintCommand(analysisType, analysisParams, outputVarsStr);
+//             return true;
+//         }
+//         return false;
+//     }
+//
+//     // New method to handle file-related commands
+//     bool tryParseFileAndMenuCommands(const string& in) {
+//         if (in == "show existing schematics") {
+//             controller.handleShowExistingSchematicsCommand();
+//             return true;
+//         }
+//         smatch matches;
+//         regex new_file_pattern(R"(^NewFile\s+(\S+)$)");
+//         if (regex_match(in, matches, new_file_pattern)) {
+//             controller.handleNewFileCommand(matches[1].str());
+//             return true;
+//         }
+//         // If in file menu, pass input to controller for handling
+//         if(controller.isInFileMenu()){
+//             controller.handleChooseSchematic(in, this);
+//             return true;
+//         }
+//         return false;
+//     }
+//
+//
+// public:
+//     explicit CommandParser(centralController& ctrl) : controller(ctrl) {}
+//
+//     void processInput(const string& in) {
+//         if (trim(in).empty()) return;
+//
+//         string trimmed_in = trim(in);
+//
+//         // File menu commands have the highest priority
+//         if (tryParseFileAndMenuCommands(trimmed_in)) return;
+//
+//         if (tryParseAnalysisDefinitionCommands(trimmed_in)) return;
+//         if (tryParseNodeCommands(trimmed_in)) return;
+//         if (tryParseListCommands(trimmed_in)) return;
+//         if (tryParsePrintCommands(trimmed_in)) return;
+//
+//         // This is for direct user commands like 'add R1 ...'
+//         if (tryParseElementCommands(trimmed_in)) return;
+//         if (tryParseSourceCommands(trimmed_in)) return;
+//
+//         // This is for parsing lines from a file
+//         if (tryParseNetlistLine(trimmed_in)) return;
+//
+//
+//         throw logic_error("Error: Unknown command or invalid syntax. -> " + in);
+//     }
+// };
+//
+// void centralController::handleChooseSchematic(const string& choice, CommandParser* parser) {
+//     if (choice == "return") {
+//         is_in_file_menu = false;
+//         cout << "Returning to main menu..." << endl;
+//         return;
+//     }
+//
+//     try {
+//         size_t choice_num = stoul(choice);
+//         if (choice_num > 0 && choice_num <= schematic_files.size()) {
+//             string filename = schematic_files[choice_num - 1];
+//             string full_path = schematics_directory + "/" + filename + ".txt";
+//
+//             ifstream file(full_path);
+//             if (!file.is_open()) {
+//                 throw logic_error("Error: Could not open file " + filename);
+//             }
+//
+//             clearCircuit(); // Clear current circuit before loading
+//
+//             cout << "Loading schematic '" << filename << "'..." << endl;
+//             cout << filename << ".txt:" << endl;
+//
+//             string line;
+//             while(getline(file, line)) {
+//                 line = trim(line);
+//                 if (line.empty() || line[0] == '*' || line[0] == '.') continue; // Ignore comments, .tran, etc.
+//                 cout << line << endl; // Show file content as per PDF
+//                 parser->processInput(line); // Process each line to build the circuit
+//             }
+//             file.close();
+//             cout << "Schematic '" << filename << "' loaded successfully." << endl;
+//
+//         } else {
+//             cout << "-Error: Inappropriate input" << endl;
+//         }
+//     } catch (const exception& e) {
+//         cout << "-Error: Inappropriate input (" << e.what() << ")" << endl;
+//     }
+//
+//     // Show menu again as per PDF behavior
+//     handleShowExistingSchematicsCommand();
+// }
+//
+// // ============================================================================================
+// // ||                  تابع اصلی (Main Function)                                              ||
+// // ============================================================================================
+// int main() {
+//     centralController controller_instance;
+//     CommandParser parser(controller_instance);
+//
+//     cout << "Welcome to Circuit Simulator!" << endl;
+//     cout << "Use 'show existing schematics' to manage files." << endl;
+//     cout << "Enter commands or 'exit' to quit." << endl;
+//
+//     string line;
+//     while (cout << ">>> " && getline(cin, line) && line != "exit") {
+//         try {
+//             parser.processInput(line);
+//         } catch (const exception& e) {
+//             cerr << e.what() << endl;
+//         }
+//     }
+//
+//     return 0;
+// }
 
